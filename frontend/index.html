@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Design Simulator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="container">
+        <header>
+            <div class="header-top">
+                <h1>System Design Simulator</h1>
+                <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+                    <span class="theme-icon">🌙</span>
+                </button>
+            </div>
+            <p class="subtitle">Explore distributed systems concepts through interactive simulations</p>
+        </header>
+        
+        <main>
+            <section class="simulations">
+                <h2>Available Simulations</h2>
+                <div class="simulation-grid">
+                    <a href="visualizations/consensus/index.html" class="simulation-card">
+                        <h3>Consensus Algorithms</h3>
+                        <p>Raft consensus algorithm visualization</p>
+                        <span class="status">Available</span>
+                    </a>
+                    <a href="visualizations/atomic-commit/index.html" class="simulation-card">
+                        <h3>Two-Phase Commit (2PC)</h3>
+                        <p>Classic atomic commit protocol visualization</p>
+                        <span class="status">Available</span>
+                    </a>
+                    <a href="visualizations/three-phase-commit/index.html" class="simulation-card">
+                        <h3>Three-Phase Commit (3PC)</h3>
+                        <p>Non-blocking atomic commit protocol with pre-commit phase</p>
+                        <span class="status">Available</span>
+                    </a>
+                    <a href="visualizations/rate-limiting/index.html" class="simulation-card">
+                        <h3>Rate Limiting Algorithms</h3>
+                        <p>Compare 5 algorithms: Fixed Window, Sliding Log, Sliding Window, Token Bucket, Leaky Bucket</p>
+                        <span class="status">Available</span>
+                    </a>
+                    <!-- More simulations will be added here -->
+                </div>
+            </section>
+        </main>
+    </div>
+    <script>
+        // Theme management
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+        }
+
+        function updateThemeIcon(theme) {
+            const themeIcon = document.querySelector('.theme-icon');
+            if (themeIcon) {
+                themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            const themeToggle = document.getElementById('theme-toggle');
+            if (themeToggle) {
+                themeToggle.addEventListener('click', toggleTheme);
+            }
+        });
+    </script>
+</body>
+</html>
+

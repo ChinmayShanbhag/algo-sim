@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consensus Algorithm Simulator</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="container">
+        <nav class="top-nav">
+            <a href="../../index.html" class="back-link">← Back to Home</a>
+            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+                <span class="theme-icon">🌙</span>
+            </button>
+        </nav>
+        <h1>Raft Consensus Algorithm Simulator</h1>
+        <div id="controls">
+            <div class="control-group">
+                <div class="controls-row">
+                    <div class="controls-left">
+                        <h3>Controls</h3>
+                        <div class="mode-toggle-container">
+                            <label class="mode-toggle">
+                                <input type="radio" name="election-mode" value="manual" checked>
+                                <span>Manual</span>
+                            </label>
+                            <label class="mode-toggle">
+                                <input type="radio" name="election-mode" value="automatic">
+                                <span>Auto (Timeout)</span>
+                            </label>
+                        </div>
+                        <div id="node-buttons"></div>
+                    </div>
+                    <div class="controls-right">
+                        <div class="step-navigation-compact">
+                            <button id="prev-step-btn" class="nav-button" disabled>← Prev</button>
+                            <span id="step-info" class="step-info">No election</span>
+                            <button id="next-step-btn" class="nav-button" disabled>Next →</button>
+                        </div>
+                        <button id="reset-btn" class="reset-button">Reset</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="main-content">
+            <div id="visualization"></div>
+            <div id="explanation-panel">
+                <h2>Raft Algorithm</h2>
+                <div class="explanation-content">
+                    <h3>Current Step Explanation</h3>
+                    <div id="current-step-explanation">
+                        <p class="feedback-text">Click a node to start an election and see step-by-step process.</p>
+                    </div>
+                    
+                    
+                    <h3>What is Raft?</h3>
+                    <p>Raft is a consensus algorithm for managing a replicated log. It ensures all nodes in a cluster agree on the same state.</p>
+                    
+                    <h3>Node States</h3>
+                    <ul>
+                        <li><span class="state-badge follower">Follower</span> - Passive, receives updates from leader</li>
+                        <li><span class="state-badge candidate">Candidate</span> - Running for leader election</li>
+                        <li><span class="state-badge leader">Leader</span> - Handles all client requests</li>
+                    </ul>
+                    
+                    <h3>How Nodes Become Candidates (Real Life)</h3>
+                    <p><strong>Timeout Mechanism:</strong> In real Raft, nodes don't manually become candidates. Instead:</p>
+                    <ul>
+                        <li><strong>Leader sends heartbeats:</strong> The leader periodically sends heartbeat messages to all followers</li>
+                        <li><strong>Follower timeout:</strong> If a follower doesn't receive a heartbeat within a timeout period (e.g., 150-300ms), it assumes the leader is dead</li>
+                        <li><strong>Auto-candidate:</strong> The follower automatically becomes a candidate and starts an election</li>
+                    </ul>
+                    
+                    <h3>Simulation Modes</h3>
+                    <ul>
+                        <li><strong>Manual Mode:</strong> Click nodes to start elections. Good for learning step-by-step.</li>
+                        <li><strong>Automatic Mode:</strong> Simulates real-world timeout behavior. A random follower will timeout and start an election automatically.</li>
+                    </ul>
+                    <p><em>Switch modes using the toggle in the Controls panel!</em></p>
+                    
+                    <h3>Leader Election Process</h3>
+                    <ol>
+                        <li><strong>Timeout triggers:</strong> Node doesn't receive heartbeat → becomes Candidate</li>
+                        <li><strong>Vote for self:</strong> Increments term, votes for itself</li>
+                        <li><strong>Request Votes:</strong> Sends vote requests to all other nodes (see yellow circles moving)</li>
+                        <li><strong>Nodes Respond:</strong> Each node responds YES (green) or NO (red) based on whether they've already voted</li>
+                        <li><strong>Majority Wins:</strong> Need 3+ votes out of 5 nodes to become leader</li>
+                        <li><strong>Result:</strong> If majority → becomes Leader, else → stays Follower</li>
+                    </ol>
+                    <p><strong>Watch the animations:</strong> Yellow circles show vote requests traveling, green circles show positive responses!</p>
+                    
+                    <h3>All Election Steps</h3>
+                    <div id="election-steps">
+                        <p class="feedback-text">Click a node to see the step-by-step election process!</p>
+                    </div>
+                    
+                    <h3>Current Status</h3>
+                    <div id="action-feedback">
+                        <p class="feedback-text">Ready to start an election.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        console.log('📄 HTML loaded, script tag reached');
+        console.log('📄 D3 script loaded:', typeof d3 !== 'undefined');
+    </script>
+    <script src="app.js"></script>
+    <script>
+        console.log('📄 app.js script tag executed');
+        // Wait a bit for app.js to load
+        setTimeout(() => {
+            console.log('📄 API_BASE defined:', typeof API_BASE !== 'undefined', typeof API_BASE !== 'undefined' ? API_BASE : 'NOT DEFINED');
+        }, 100);
+    </script>
+</body>
+</html>
+

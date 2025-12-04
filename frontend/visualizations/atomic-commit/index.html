@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Two-Phase Commit (2PC) Simulator</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="container">
+        <nav class="top-nav">
+            <a href="../../index.html" class="back-link">← Back to Home</a>
+            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+                <span class="theme-icon">🌙</span>
+            </button>
+        </nav>
+        
+        <h1>Two-Phase Commit (2PC) Simulator</h1>
+        
+        <div id="controls">
+            <div class="control-group">
+                <h3>Controls</h3>
+                <div class="controls-row">
+                    <div class="controls-left">
+                        <label for="transaction-data">Transaction Data:</label>
+                        <input type="text" id="transaction-data" placeholder="Enter transaction data" value="Update User Balance">
+                        <button id="start-transaction-btn" class="primary-button">Start Transaction</button>
+                        <button id="reset-btn" class="reset-button">Reset</button>
+                    </div>
+                    <div class="controls-right">
+                        <div class="step-navigation-compact">
+                            <button id="prev-step-btn" class="nav-button" disabled>← Prev</button>
+                            <span id="step-info" class="step-info">No transaction</span>
+                            <button id="next-step-btn" class="nav-button" disabled>Next →</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="participant-controls">
+                    <h4>Participant Votes (Set before starting transaction)</h4>
+                    <div id="participant-buttons"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div id="visualization"></div>
+            
+            <div id="explanation-panel">
+                <h2>Two-Phase Commit (2PC)</h2>
+                <div class="explanation-content">
+                    <h3>Current Step Explanation</h3>
+                    <div id="current-step-explanation">
+                        <p class="feedback-text">Click "Start Transaction" to begin a 2PC protocol.</p>
+                    </div>
+                    
+                    <h3>What is Two-Phase Commit?</h3>
+                    <p>2PC is a distributed algorithm that ensures all nodes either commit or abort a transaction atomically, even in the presence of failures.</p>
+                    
+                    <h3>Node Types</h3>
+                    <ul>
+                        <li><span class="state-badge coordinator">Coordinator</span> - Central node that manages the protocol</li>
+                        <li><span class="state-badge participant-idle">Participant</span> - Nodes that vote and execute the transaction</li>
+                    </ul>
+                    
+                    <h3>Participant States</h3>
+                    <ul>
+                        <li><span class="state-badge participant-idle">Idle</span> - Not in a transaction</li>
+                        <li><span class="state-badge participant-prepared">Prepared</span> - Voted YES, ready to commit</li>
+                        <li><span class="state-badge participant-committed">Committed</span> - Transaction committed</li>
+                        <li><span class="state-badge participant-aborted">Aborted</span> - Transaction aborted</li>
+                    </ul>
+                    
+                    <h3>The Two Phases</h3>
+                    <h4>Phase 1: PREPARE (Voting)</h4>
+                    <ol>
+                        <li><strong>Coordinator sends PREPARE:</strong> Asks all participants "Can you commit?"</li>
+                        <li><strong>Participants vote:</strong> Each responds YES (can commit) or NO (cannot commit)</li>
+                        <li><strong>Coordinator collects votes:</strong> Waits for all responses</li>
+                    </ol>
+                    
+                    <h4>Phase 2: COMMIT or ABORT (Decision)</h4>
+                    <ol>
+                        <li><strong>Coordinator decides:</strong>
+                            <ul>
+                                <li>If ALL voted YES → Send COMMIT to all</li>
+                                <li>If ANY voted NO → Send ABORT to all</li>
+                            </ul>
+                        </li>
+                        <li><strong>Participants execute:</strong> Commit or abort based on coordinator's decision</li>
+                        <li><strong>Participants acknowledge:</strong> Confirm completion to coordinator</li>
+                    </ol>
+                    
+                    <h3>Key Properties</h3>
+                    <ul>
+                        <li><strong>Atomicity:</strong> All nodes commit or all abort - no partial commits</li>
+                        <li><strong>Blocking:</strong> If coordinator fails after participants vote YES, they're stuck waiting (blocked)</li>
+                        <li><strong>Unanimous:</strong> ALL participants must vote YES for commit to proceed</li>
+                    </ul>
+                    
+                    <h3>Try It Out!</h3>
+                    <p>1. Toggle participant votes (green = YES, red = NO)</p>
+                    <p>2. Click "Start Transaction" to see the protocol in action</p>
+                    <p>3. Use step navigation to go through each message</p>
+                    <p><strong>Watch:</strong> Yellow circles = requests, Blue circles = votes, Green = commit, Red = abort</p>
+                    
+                    <h3>All Protocol Steps</h3>
+                    <div id="protocol-steps">
+                        <p class="feedback-text">Start a transaction to see the step-by-step protocol!</p>
+                    </div>
+                    
+                    <h3>Current Status</h3>
+                    <div id="action-feedback">
+                        <p class="feedback-text">Ready to start a transaction.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="app.js" defer></script>
+</body>
+</html>
+

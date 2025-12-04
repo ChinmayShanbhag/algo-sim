@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three-Phase Commit (3PC) Simulator</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="container">
+        <nav class="top-nav">
+            <a href="../../index.html" class="back-link">← Back to Home</a>
+            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+                <span class="theme-icon">🌙</span>
+            </button>
+        </nav>
+        
+        <h1>Three-Phase Commit (3PC) Simulator</h1>
+        
+        <div id="controls">
+            <div class="control-group">
+                <h3>Controls</h3>
+                <div class="controls-row">
+                    <div class="controls-left">
+                        <label for="transaction-data">Transaction Data:</label>
+                        <input type="text" id="transaction-data" placeholder="Enter transaction data" value="Update User Balance">
+                        <button id="start-transaction-btn" class="primary-button">Start Transaction</button>
+                        <button id="reset-btn" class="reset-button">Reset</button>
+                    </div>
+                    <div class="controls-right">
+                        <div class="step-navigation-compact">
+                            <button id="prev-step-btn" class="nav-button" disabled>← Prev</button>
+                            <span id="step-info" class="step-info">No transaction</span>
+                            <button id="next-step-btn" class="nav-button" disabled>Next →</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="participant-controls">
+                    <h4>Participant Votes (Set before starting transaction)</h4>
+                    <div id="participant-buttons"></div>
+                </div>
+                
+                <div class="failure-simulation">
+                    <h4>Failure Simulation (3PC Non-Blocking Demo)</h4>
+                    <p class="info-text">Simulate coordinator failure after pre-commit to see participants timeout and commit autonomously</p>
+                    <button id="simulate-coordinator-failure-btn" class="failure-button" disabled>
+                        Simulate Coordinator Failure After Pre-Commit
+                    </button>
+                    <div id="failure-status" class="failure-status"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div id="visualization"></div>
+            
+            <div id="explanation-panel">
+                <h2>Three-Phase Commit (3PC)</h2>
+                <div class="explanation-content">
+                    <h3>Current Step Explanation</h3>
+                    <div id="current-step-explanation">
+                        <p class="feedback-text">Click "Start Transaction" to begin a 3PC protocol.</p>
+                    </div>
+                    
+                    <h3>What is Three-Phase Commit?</h3>
+                    <p>3PC is an enhancement of 2PC that adds a "pre-commit" phase to avoid blocking. It ensures all nodes either commit or abort a transaction atomically while being non-blocking.</p>
+                    
+                    <h3>Node Types</h3>
+                    <ul>
+                        <li><span class="state-badge coordinator">Coordinator</span> - Central node that manages the protocol</li>
+                        <li><span class="state-badge participant-idle">Participant</span> - Nodes that vote and execute the transaction</li>
+                    </ul>
+                    
+                    <h3>Participant States</h3>
+                    <ul>
+                        <li><span class="state-badge participant-idle">Idle</span> - Not in a transaction</li>
+                        <li><span class="state-badge participant-uncertain">Uncertain</span> - Voted YES, waiting for pre-commit</li>
+                        <li><span class="state-badge participant-pre-committed">Pre-Committed</span> - Ready to commit (can timeout and commit)</li>
+                        <li><span class="state-badge participant-committed">Committed</span> - Transaction committed</li>
+                        <li><span class="state-badge participant-aborted">Aborted</span> - Transaction aborted</li>
+                    </ul>
+                    
+                    <h3>The Three Phases</h3>
+                    <h4>Phase 1: CAN-COMMIT (Voting)</h4>
+                    <ol>
+                        <li><strong>Coordinator sends CAN-COMMIT:</strong> Asks all participants "Can you commit?"</li>
+                        <li><strong>Participants vote:</strong> Each responds YES (can commit) or NO (cannot commit)</li>
+                        <li><strong>Coordinator collects votes:</strong> Waits for all responses</li>
+                        <li><strong>If ANY NO → ABORT</strong> (skip to abort, no Phase 2/3)</li>
+                    </ol>
+                    
+                    <h4>Phase 2: PRE-COMMIT (Preparation)</h4>
+                    <ol>
+                        <li><strong>Coordinator sends PRE-COMMIT:</strong> Tells participants to prepare to commit</li>
+                        <li><strong>Participants enter pre-committed state:</strong> Can now timeout and commit autonomously</li>
+                        <li><strong>Key difference from 2PC:</strong> Participants are now "safe" to commit even if coordinator fails</li>
+                    </ol>
+                    
+                    <h4>Phase 3: DO-COMMIT (Final Commit)</h4>
+                    <ol>
+                        <li><strong>Coordinator sends DO-COMMIT:</strong> Final commit command</li>
+                        <li><strong>Participants commit:</strong> Execute the transaction</li>
+                        <li><strong>Participants acknowledge:</strong> Confirm completion to coordinator</li>
+                    </ol>
+                    
+                    <h3>Key Properties & Advantages over 2PC</h3>
+                    <ul>
+                        <li><strong>Atomicity:</strong> All nodes commit or all abort - no partial commits</li>
+                        <li><strong>Non-Blocking:</strong> If coordinator fails after pre-commit, participants can timeout and commit (unlike 2PC)</li>
+                        <li><strong>Unanimous:</strong> ALL participants must vote YES for commit to proceed</li>
+                        <li><strong>Pre-Commit Safety:</strong> Once in pre-committed state, participants know all others voted YES</li>
+                        <li><strong>Trade-off:</strong> Extra phase adds latency but removes blocking problem</li>
+                    </ul>
+                    
+                    <h3>Demonstrating Non-Blocking Property</h3>
+                    <p><strong>Try this:</strong></p>
+                    <ol>
+                        <li>Start a transaction (all participants vote YES)</li>
+                        <li>Step through until Phase 2 completes (all participants pre-committed)</li>
+                        <li>Click "Simulate Coordinator Failure After Pre-Commit"</li>
+                        <li>Watch participants timeout (orange ring fills up)</li>
+                        <li>When timeout expires, participants autonomously commit!</li>
+                    </ol>
+                    <p><strong>Why this works:</strong> In pre-committed state, participants know all others voted YES, so they can safely commit without coordinator.</p>
+                    <p><strong>In 2PC:</strong> Participants would be blocked forever waiting for coordinator!</p>
+                    
+                    <h3>Try It Out!</h3>
+                    <p>1. Toggle participant votes (green = YES, red = NO)</p>
+                    <p>2. Click "Start Transaction" to see the 3-phase protocol</p>
+                    <p>3. Use step navigation to go through each phase</p>
+                    <p><strong>Watch:</strong> Yellow = can-commit, Orange = pre-commit, Green = commit, Red = abort</p>
+                    <p><strong>Notice:</strong> The extra pre-commit phase (Phase 2) before final commit (Phase 3)</p>
+                    
+                    <h3>All Protocol Steps</h3>
+                    <div id="protocol-steps">
+                        <p class="feedback-text">Start a transaction to see the step-by-step 3-phase protocol!</p>
+                    </div>
+                    
+                    <h3>Current Status</h3>
+                    <div id="action-feedback">
+                        <p class="feedback-text">Ready to start a transaction.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="app.js" defer></script>
+</body>
+</html>
+

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rate Limiting Algorithms Simulator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="container">
+        <nav class="top-nav">
+            <a href="../../index.html" class="back-link">← Back to Home</a>
+            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+                <span class="theme-icon">🌙</span>
+            </button>
+        </nav>
+        
+        <h1>Rate Limiting Algorithms Simulator</h1>
+        <p class="subtitle">Compare 5 different rate limiting algorithms: Limit = 10 requests per 60 seconds</p>
+        
+        <div id="controls">
+            <div class="control-group">
+                <h3>Controls</h3>
+                <div class="controls-row">
+                    <button id="send-request-btn" class="primary-button">Send 1 Request</button>
+                    <button id="send-burst-btn" class="burst-button">Send 10 Requests (Burst)</button>
+                    <button id="reset-btn" class="reset-button">Reset All</button>
+                </div>
+                <div id="request-feedback"></div>
+            </div>
+        </div>
+        
+        <div id="algorithms-container">
+            <div class="algorithm-card" id="fixed-window">
+                <h3>Fixed Window Counter</h3>
+                <div class="algorithm-visual">
+                    <div class="counter-display">
+                        <span class="count-label">Count:</span>
+                        <span class="count-value" id="fw-count">0</span>
+                        <span class="count-limit">/ 10</span>
+                    </div>
+                    <div class="window-indicator">
+                        <div class="window-bar" id="fw-bar"></div>
+                        <span class="window-label">Window Progress</span>
+                    </div>
+                </div>
+                <div class="request-history" id="fw-history"></div>
+                <div class="algorithm-info">
+                    <p><strong>Simple Concept:</strong> Like a timer that resets every 60 seconds</p>
+                    <p><strong>Example:</strong> "You can make 10 calls per minute"</p>
+                    <p><strong>Problem:</strong> 10 calls at 11:59:59 + 10 calls at 12:00:01 = 20 calls in 2 seconds! ⚠️</p>
+                </div>
+            </div>
+            
+            <div class="algorithm-card" id="sliding-log">
+                <h3>Sliding Log</h3>
+                <div class="algorithm-visual">
+                    <div class="counter-display">
+                        <span class="count-label">Count:</span>
+                        <span class="count-value" id="sl-count">0</span>
+                        <span class="count-limit">/ 10</span>
+                    </div>
+                    <div class="log-display-enhanced" id="sl-log-enhanced">
+                        <div class="log-timeline">
+                            <div class="timeline-bar"></div>
+                            <div class="timeline-labels">
+                                <span>Now</span>
+                                <span>-60s</span>
+                            </div>
+                            <div class="log-entries-timeline" id="sl-timeline-entries"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="request-history" id="sl-history"></div>
+                <div class="algorithm-info">
+                    <p><strong>Simple Concept:</strong> Writes down exact time of each request</p>
+                    <p><strong>Example:</strong> "Show me all requests in last 60 seconds" - counts them</p>
+                    <p><strong>Trade-off:</strong> Most accurate but uses more memory 📝</p>
+                </div>
+            </div>
+            
+            <div class="algorithm-card" id="sliding-window">
+                <h3>Sliding Window Counter</h3>
+                <div class="algorithm-visual">
+                    <div class="counter-display">
+                        <span class="count-label">Estimated:</span>
+                        <span class="count-value" id="sw-count">0</span>
+                        <span class="count-limit">/ 10</span>
+                    </div>
+                    <div class="window-indicator">
+                        <div class="dual-window">
+                            <div class="prev-window" id="sw-prev">
+                                <span>Prev: <span id="sw-prev-count">0</span></span>
+                            </div>
+                            <div class="curr-window" id="sw-curr">
+                                <span>Curr: <span id="sw-curr-count">0</span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="request-history" id="sw-history"></div>
+                <div class="algorithm-info">
+                    <p><strong>Simple Concept:</strong> Looks at current minute + part of previous minute</p>
+                    <p><strong>Example:</strong> At 30 seconds, counts: 50% of prev minute + 100% of current</p>
+                    <p><strong>Sweet Spot:</strong> Accurate enough + low memory = Production favorite! ⭐</p>
+                </div>
+            </div>
+            
+            <div class="algorithm-card" id="token-bucket">
+                <h3>Token Bucket</h3>
+                <div class="algorithm-visual">
+                    <div class="counter-display">
+                        <span class="count-label">Tokens:</span>
+                        <span class="count-value" id="tb-tokens">10</span>
+                        <span class="count-limit">/ 10</span>
+                    </div>
+                    <div class="bucket-display">
+                        <div class="bucket">
+                            <div class="bucket-fill" id="tb-fill"></div>
+                            <div class="bucket-label">Token Bucket</div>
+                        </div>
+                        <div class="refill-info">
+                            <span>Refill: 0.17/sec</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="request-history" id="tb-history"></div>
+                <div class="algorithm-info">
+                    <p><strong>Simple Concept:</strong> Like a piggy bank that slowly fills with coins</p>
+                    <p><strong>Example:</strong> Start with 10 tokens. Use 1 per request. Gain 1 every 6 seconds</p>
+                    <p><strong>Cool Feature:</strong> Save up tokens for a burst! (Great for APIs) 🪙</p>
+                </div>
+            </div>
+            
+            <div class="algorithm-card" id="leaky-bucket">
+                <h3>Leaky Bucket</h3>
+                <div class="algorithm-visual">
+                    <div class="counter-display">
+                        <span class="count-label">Queue:</span>
+                        <span class="count-value" id="lb-queue">0</span>
+                        <span class="count-limit">/ 10</span>
+                    </div>
+                    <div class="bucket-display">
+                        <div class="bucket leaky">
+                            <div class="bucket-fill" id="lb-fill"></div>
+                            <div class="bucket-label">Request Queue</div>
+                            <div class="leak-indicator">💧</div>
+                        </div>
+                        <div class="refill-info">
+                            <span>Process: 0.17/sec</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="request-history" id="lb-history"></div>
+                <div class="algorithm-info">
+                    <p><strong>Simple Concept:</strong> Like a water bucket with a tiny hole at bottom</p>
+                    <p><strong>Example:</strong> Requests fill bucket. They "leak out" at steady rate (0.17/sec)</p>
+                    <p><strong>Cool Feature:</strong> Perfect for smooth streaming! Overflow = rejected 💧</p>
+                </div>
+            </div>
+        </div>
+        
+        <div id="explanation-panel">
+            <h2>Understanding Rate Limiting</h2>
+            <div class="explanation-content">
+                <h3>What is Rate Limiting?</h3>
+                <p><strong>Real-Life Example:</strong> Imagine a coffee shop that says "maximum 10 cups per person per hour"</p>
+                <p>Rate limiting is the same but for servers: <em>"You can make maximum 10 requests per 60 seconds"</em></p>
+                <p><strong>Why?</strong> Prevents abuse, ensures fair access, protects servers from overload</p>
+                
+                <h3>Quick Comparison</h3>
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Algorithm</th>
+                            <th>Simple Analogy</th>
+                            <th>Best For</th>
+                            <th>Problem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Fixed Window</strong></td>
+                            <td>⏰ Timer that resets every minute</td>
+                            <td>Simple apps</td>
+                            <td>Can get 2x limit at reset time</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Sliding Log</strong></td>
+                            <td>📝 Write down every request time</td>
+                            <td>When accuracy is critical</td>
+                            <td>Uses lots of memory</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Sliding Window</strong></td>
+                            <td>📊 Smart average of 2 windows</td>
+                            <td>Most production apps ⭐</td>
+                            <td>Slightly approximate</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Token Bucket</strong></td>
+                            <td>🪙 Piggy bank that refills</td>
+                            <td>APIs (allows bursts)</td>
+                            <td>Can drain fully in burst</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Leaky Bucket</strong></td>
+                            <td>💧 Water bucket with hole</td>
+                            <td>Video streaming (smooth)</td>
+                            <td>Bursts must wait in queue</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <h3>Real-World Usage Examples</h3>
+                <ul>
+                    <li><strong>Fixed Window:</strong> Internal tools, simple rate limits (easiest to implement)</li>
+                    <li><strong>Sliding Log:</strong> Banking APIs, security systems (needs perfect accuracy)</li>
+                    <li><strong>Sliding Window:</strong> Twitter, Facebook, most REST APIs (best overall balance) ⭐</li>
+                    <li><strong>Token Bucket:</strong> AWS API Gateway, GitHub API (allows burst for good users)</li>
+                    <li><strong>Leaky Bucket:</strong> Netflix streaming, video processing (needs smooth rate)</li>
+                </ul>
+                
+                <h3>Key Insight: The Burst Problem</h3>
+                <p><strong>Fixed Window issue:</strong> User makes 10 requests at 11:59:59, then 10 more at 12:00:01 → 20 requests in 2 seconds!</p>
+                <p><strong>Sliding Window fix:</strong> Counts across window boundaries, so burst is detected</p>
+                <p><strong>Token Bucket difference:</strong> <em>Intentionally</em> allows bursts (good for APIs that spike sometimes)</p>
+                
+                <h3>Try It Yourself!</h3>
+                <ol>
+                    <li>Click "Send 1 Request" multiple times - see how each algorithm handles it</li>
+                    <li>Click "Send 10 Requests" - see burst behavior differences</li>
+                    <li>Wait 60 seconds and try again - observe reset/refill behavior</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+    <script src="app.js" defer></script>
+</body>
+</html>
+
