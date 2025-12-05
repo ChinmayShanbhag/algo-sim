@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bloom Filter Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="container">
+        <nav class="top-nav">
+            <a href="../../index.html" class="back-link">← Back to Home</a>
+            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+                <span class="theme-icon">🌙</span>
+            </button>
+        </nav>
+        <h1>Bloom Filter Visualization</h1>
+        
+        <div id="controls">
+            <div class="control-group">
+                <h3>Operations</h3>
+                <div class="controls-row">
+                    <input type="text" id="item-input" placeholder="Enter item (e.g., apple, banana)" class="input-field">
+                    <button id="add-btn" class="primary-button">ADD to Filter</button>
+                    <button id="check-btn" class="secondary-button">CHECK if Exists</button>
+                    <button id="reset-btn" class="reset-button">Reset</button>
+                </div>
+                <div id="feedback" class="feedback"></div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="visualization-container">
+                <!-- Bit Array Visualization -->
+                <div class="section-card">
+                    <h2>🔢 Bit Array (32 bits)</h2>
+                    <p class="section-description">Each cell represents one bit. Green = 1 (set), Gray = 0 (unset). Yellow pulse = currently being accessed by hash functions.</p>
+                    <div id="bit-array-container" class="bit-array-container"></div>
+                    <div class="fill-indicator">
+                        <span>Fill: <strong id="fill-percentage">0%</strong></span>
+                        <span>Bits Set: <strong id="bits-set">0/32</strong></span>
+                    </div>
+                </div>
+
+                <!-- Hash Functions Visualization -->
+                <div class="section-card">
+                    <h2>🔨 Hash Functions (3 functions)</h2>
+                    <p class="section-description">Each hash function maps an item to a different bit position. Using multiple hash functions reduces false positive probability.</p>
+                    <div id="hash-functions" class="hash-functions-container">
+                        <div class="hash-function">
+                            <div class="hash-label">Hash 1</div>
+                            <div class="hash-arrow">→</div>
+                            <div class="hash-result" id="hash-1">-</div>
+                        </div>
+                        <div class="hash-function">
+                            <div class="hash-label">Hash 2</div>
+                            <div class="hash-arrow">→</div>
+                            <div class="hash-result" id="hash-2">-</div>
+                        </div>
+                        <div class="hash-function">
+                            <div class="hash-label">Hash 3</div>
+                            <div class="hash-arrow">→</div>
+                            <div class="hash-result" id="hash-3">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Items Added -->
+                <div class="section-card">
+                    <h2>✅ Items Added</h2>
+                    <p class="section-description">All items that have been added to the filter. These are guaranteed to return "probably yes" when checked.</p>
+                    <div id="items-added" class="items-container"></div>
+                </div>
+
+                <!-- Recent Operations -->
+                <div class="section-card">
+                    <h2>📋 Recent Operations</h2>
+                    <p class="section-description">History of ADD and CHECK operations. Watch for false positives (items not added but filter says "probably yes").</p>
+                    <div id="recent-ops" class="operations-container"></div>
+                </div>
+
+                <!-- Statistics -->
+                <div class="section-card">
+                    <h2>📊 Statistics</h2>
+                    <p class="section-description">
+                        <strong>True Positive:</strong> Item was added, filter says "probably yes"<br>
+                        <strong>False Positive:</strong> Item NOT added, but filter says "probably yes"<br>
+                        <strong>True Negative:</strong> Item NOT added, filter says "definitely not"<br>
+                        <strong>FP Rate:</strong> Percentage of false positives among negative checks
+                    </p>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-label">True Positives</span>
+                            <span id="stat-tp" class="stat-value stat-green">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">False Positives</span>
+                            <span id="stat-fp" class="stat-value stat-red">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">True Negatives</span>
+                            <span id="stat-tn" class="stat-value stat-blue">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">False Positive Rate</span>
+                            <span id="stat-fpr" class="stat-value">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Explanation Panel -->
+            <div id="explanation-panel">
+                <h2>Understanding Bloom Filters</h2>
+                <div class="explanation-content">
+                    <h3>What is a Bloom Filter? 🌸</h3>
+                    <p>A Bloom Filter is a space-efficient probabilistic data structure that tests whether an element is a member of a set. It can tell you:</p>
+                    <ul>
+                        <li><strong>"Definitely NOT in the set"</strong> (100% accurate)</li>
+                        <li><strong>"Probably in the set"</strong> (might be a false positive)</li>
+                    </ul>
+
+                    <h3>How It Works:</h3>
+                    
+                    <h4>1. Bit Array 🔢</h4>
+                    <p>A fixed-size array of bits (all initially 0). In this demo: 64 bits.</p>
+
+                    <h4>2. Hash Functions 🔨</h4>
+                    <p>Multiple independent hash functions (here: 3). Each maps an item to a position in the bit array.</p>
+
+                    <h4>3. Adding an Item ➕</h4>
+                    <ol>
+                        <li>Hash the item with each hash function</li>
+                        <li>Set the bits at those positions to 1</li>
+                        <li>Example: "apple" → Hash1(15), Hash2(42), Hash3(7) → Set bits 15, 42, 7 to 1</li>
+                    </ol>
+
+                    <h4>4. Checking an Item ✅</h4>
+                    <ol>
+                        <li>Hash the item with each hash function</li>
+                        <li>Check if ALL those bits are 1</li>
+                        <li>If ANY bit is 0 → <strong>Definitely NOT in set</strong></li>
+                        <li>If ALL bits are 1 → <strong>Probably in set</strong> (might be false positive)</li>
+                    </ol>
+
+                    <h3>False Positives 🚨</h3>
+                    <p>A false positive occurs when:</p>
+                    <ul>
+                        <li>An item was NOT added to the filter</li>
+                        <li>But its hash positions were set by OTHER items</li>
+                        <li>So the filter says "probably yes" incorrectly</li>
+                    </ul>
+                    <p><strong>Example:</strong> If "apple" sets bits [15, 42, 7] and "banana" sets bits [15, 23, 42], then checking "cherry" which hashes to [15, 42, 7] will return "probably yes" even though it wasn't added!</p>
+
+                    <h3>Key Properties:</h3>
+                    <ul>
+                        <li><strong>Space Efficient:</strong> Uses much less space than storing all items</li>
+                        <li><strong>Fast:</strong> O(k) time for add/check (k = number of hash functions)</li>
+                        <li><strong>No False Negatives:</strong> If it says "not in set", it's 100% correct</li>
+                        <li><strong>Can't Remove Items:</strong> Standard Bloom Filters don't support deletion</li>
+                        <li><strong>False Positive Rate:</strong> Increases as more items are added (more bits set)</li>
+                    </ul>
+
+                    <h3>Trade-offs:</h3>
+                    <ul>
+                        <li><strong>Larger bit array:</strong> Fewer false positives, more memory</li>
+                        <li><strong>More hash functions:</strong> Fewer false positives, slower operations</li>
+                        <li><strong>More items added:</strong> Higher false positive rate</li>
+                    </ul>
+
+                    <h3>Real-World Uses:</h3>
+                    <ul>
+                        <li><strong>Chrome:</strong> Checks malicious URLs (millions of URLs in tiny space)</li>
+                        <li><strong>Medium:</strong> "Have you read this article?" recommendations</li>
+                        <li><strong>Bitcoin:</strong> Simplified Payment Verification</li>
+                        <li><strong>Cassandra/HBase:</strong> Avoid disk reads for non-existent keys</li>
+                        <li><strong>Akamai:</strong> Web cache filtering</li>
+                        <li><strong>Spell Checkers:</strong> Quick dictionary lookups</li>
+                    </ul>
+
+                    <h3>Try It:</h3>
+                    <ol>
+                        <li>ADD several items (e.g., "apple", "banana", "cherry")</li>
+                        <li>Watch how hash functions set different bits</li>
+                        <li>CHECK items you added → "probably yes" (true positive)</li>
+                        <li>CHECK items you didn't add → might get false positives!</li>
+                        <li>Add more items and watch the false positive rate increase</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="../../session.js"></script>
+    <script src="../../theme.js"></script>
+    <script src="app.js" defer></script>
+</body>
+</html>
+

@@ -5,25 +5,14 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	
-	"sds/internal/simulation/two_phase_commit"
 )
-
-// Global coordinator instance for the simulation
-var coordinator *two_phase_commit.Coordinator
-
-// init initializes the coordinator with 4 participants
-// This function runs automatically when the package is imported
-func init() {
-	coordinator = two_phase_commit.NewCoordinator(4)
-}
 
 // setCORSHeaders sets CORS headers for cross-origin requests
 // This allows the frontend (running on port 8000) to communicate with the backend (port 8080)
 func setCORSHeaders(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:8000")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Session-ID")
 }
 
 // GetState returns the current state of the coordinator and participants
@@ -37,14 +26,18 @@ func GetState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	// Get user's session
+	sessionID := getSessionID(r)
+	userState := sessionManager.GetOrCreate(sessionID)
+	
 	// Create response with coordinator state
 	response := map[string]interface{}{
 		"coordinator":  map[string]interface{}{
-			"state":    coordinator.State,
-			"isFailed": coordinator.IsFailed,
+			"state":    userState.TwoPCCoordinator.State,
+			"isFailed": userState.TwoPCCoordinator.IsFailed,
 		},
-		"participants": coordinator.Participants,
-		"transaction":  coordinator.Transaction,
+		"participants": userState.TwoPCCoordinator.Participants,
+		"transaction":  userState.TwoPCCoordinator.Transaction,
 	}
 	
 	// Convert to JSON
@@ -68,6 +61,11 @@ func StartTransaction(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
+	
+	// Get user's session
+	sessionID := getSessionID(r)
+	userState := sessionManager.GetOrCreate(sessionID)
+	coordinator := userState.TwoPCCoordinator
 	
 	// Get transaction data from query parameter
 	data := r.URL.Query().Get("data")
@@ -117,6 +115,11 @@ func ResetSystem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	// Get user's session
+	sessionID := getSessionID(r)
+	userState := sessionManager.GetOrCreate(sessionID)
+	coordinator := userState.TwoPCCoordinator
+	
 	// Reset the coordinator
 	coordinator.Reset()
 	
@@ -150,6 +153,11 @@ func SetParticipantVote(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
+	
+	// Get user's session
+	sessionID := getSessionID(r)
+	userState := sessionManager.GetOrCreate(sessionID)
+	coordinator := userState.TwoPCCoordinator
 	
 	// Get participant ID
 	participantIDStr := r.URL.Query().Get("participantId")
@@ -200,6 +208,11 @@ func SimulateFailure(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
+	
+	// Get user's session
+	sessionID := getSessionID(r)
+	userState := sessionManager.GetOrCreate(sessionID)
+	coordinator := userState.TwoPCCoordinator
 	
 	// Get node type
 	nodeType := r.URL.Query().Get("nodeType")

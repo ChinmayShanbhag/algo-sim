@@ -6,6 +6,14 @@
 
 const API_BASE = 'http://localhost:8080/api/atomic-commit/3pc';
 
+// Helper function to add session header to fetch options
+function addSessionHeader(options = {}) {
+    if (typeof window.SDS_SESSION !== 'undefined') {
+        return window.SDS_SESSION.addSessionHeader(options);
+    }
+    return options;
+}
+
 let svg;
 let systemData = null;  // Contains coordinator and participants
 let protocolSteps = [];
@@ -74,7 +82,7 @@ function showLoading() {
 
 function loadSystemState() {
     console.log('Loading system state from:', `${API_BASE}/state`);
-    return fetch(`${API_BASE}/state`)
+    return fetch(`${API_BASE}/state`, addSessionHeader())
         .then(response => {
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -241,9 +249,9 @@ function updateParticipantButtons(participants) {
 }
 
 function toggleParticipantVote(participantId, canCommit) {
-    fetch(`${API_BASE}/set-participant-vote?participantId=${participantId}&canCommit=${canCommit}`, {
+    fetch(`${API_BASE}/set-participant-vote?participantId=${participantId}&canCommit=${canCommit}`, addSessionHeader({
         method: 'POST'
-    })
+    }))
         .then(response => response.json())
         .then(data => {
             systemData = data;
@@ -264,9 +272,9 @@ function startTransaction() {
     // Save initial state before transaction (deep copy)
     initialSystemState = JSON.parse(JSON.stringify(systemData));
     
-    fetch(`${API_BASE}/start-transaction?data=${encodeURIComponent(transactionData)}`, {
+    fetch(`${API_BASE}/start-transaction?data=${encodeURIComponent(transactionData)}`, addSessionHeader({
         method: 'POST'
-    })
+    }))
         .then(response => response.json())
         .then(data => {
             // Store the final state but don't render it yet
@@ -565,7 +573,7 @@ function resetSystem() {
     // Stop timeout simulation
     stopTimeoutSimulation();
     
-    fetch(`${API_BASE}/reset`, { method: 'POST' })
+    fetch(`${API_BASE}/reset`, addSessionHeader({ method: 'POST' }))
         .then(response => response.json())
         .then(data => {
             systemData = data;

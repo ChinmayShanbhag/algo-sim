@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MapReduce Data Flow</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="container">
+        <nav class="top-nav">
+            <a href="../../index.html" class="back-link">← Back to Home</a>
+            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+                <span class="theme-icon">🌙</span>
+            </button>
+        </nav>
+        <h1>MapReduce Data Flow Visualization</h1>
+        
+        <div id="controls">
+            <div class="control-group">
+                <h3>Job Control</h3>
+                <div class="controls-row">
+                    <button id="start-btn" class="primary-button">Start Job</button>
+                    <button id="map-btn" class="step-button" disabled>Execute Map Phase</button>
+                    <button id="shuffle-btn" class="step-button" disabled>Execute Shuffle Phase</button>
+                    <button id="reduce-btn" class="step-button" disabled>Execute Reduce Phase</button>
+                    <button id="reset-btn" class="reset-button">Reset</button>
+                </div>
+                <div class="job-status">
+                    <div class="status-item">
+                        <span class="label">Status:</span>
+                        <span id="job-status" class="value">Idle</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label">Stage:</span>
+                        <span id="current-stage" class="value">Ready to start</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label">Progress:</span>
+                        <span id="progress" class="value">0%</span>
+                    </div>
+                </div>
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="visualization-container">
+                <!-- Input Data -->
+                <div class="stage-section" id="input-section">
+                    <h2>📥 Input Data</h2>
+                    <div id="input-data" class="data-container"></div>
+                </div>
+
+                <!-- Map Phase -->
+                <div class="stage-section" id="map-section">
+                    <h2>🗺️ Map Phase (Parallel)</h2>
+                    <div class="workers-container" id="map-workers"></div>
+                </div>
+
+                <!-- Shuffle & Sort Phase -->
+                <div class="stage-section" id="shuffle-section">
+                    <h2>🔀 Shuffle & Sort Phase</h2>
+                    <div id="shuffle-data" class="data-container"></div>
+                </div>
+
+                <!-- Reduce Phase -->
+                <div class="stage-section" id="reduce-section">
+                    <h2>📊 Reduce Phase (Parallel)</h2>
+                    <div class="workers-container" id="reduce-workers"></div>
+                </div>
+
+                <!-- Final Output -->
+                <div class="stage-section" id="output-section">
+                    <h2>✅ Final Output</h2>
+                    <div id="final-output" class="data-container"></div>
+                </div>
+            </div>
+
+            <div id="explanation-panel">
+                <h2>Understanding MapReduce</h2>
+                <div class="explanation-content">
+                    <h3>What is MapReduce? 🌍</h3>
+                    <p>MapReduce is a programming model for processing large datasets in parallel across distributed clusters. It divides work into independent tasks that can run simultaneously on multiple machines.</p>
+
+                    <h3>The Three Main Phases:</h3>
+                    
+                    <h4>1. Map Phase 🗺️</h4>
+                    <ul>
+                        <li><strong>Input:</strong> Raw data split into chunks</li>
+                        <li><strong>Process:</strong> Each mapper processes its chunk independently</li>
+                        <li><strong>Output:</strong> Key-value pairs (e.g., word → 1)</li>
+                        <li><strong>Parallelism:</strong> Multiple mappers run simultaneously</li>
+                    </ul>
+
+                    <h4>2. Shuffle & Sort Phase 🔀</h4>
+                    <ul>
+                        <li><strong>Partitioning:</strong> Group all values by key</li>
+                        <li><strong>Sorting:</strong> Sort keys alphabetically</li>
+                        <li><strong>Distribution:</strong> Send each key to a specific reducer</li>
+                        <li><strong>Purpose:</strong> Prepare data for aggregation</li>
+                    </ul>
+
+                    <h4>3. Reduce Phase 📊</h4>
+                    <ul>
+                        <li><strong>Input:</strong> All values for a specific key</li>
+                        <li><strong>Process:</strong> Aggregate/combine values</li>
+                        <li><strong>Output:</strong> Final result per key</li>
+                        <li><strong>Parallelism:</strong> Multiple reducers run simultaneously</li>
+                    </ul>
+
+                    <h3>Example: Word Count</h3>
+                    <div class="example-box">
+                        <p><strong>Input:</strong> "hello world hello"</p>
+                        <p><strong>Map Output:</strong> (hello, 1), (world, 1), (hello, 1)</p>
+                        <p><strong>Shuffle:</strong> hello → [1, 1], world → [1]</p>
+                        <p><strong>Reduce Output:</strong> (hello, 2), (world, 1)</p>
+                    </div>
+
+                    <h3>Key Benefits:</h3>
+                    <ul>
+                        <li><strong>Scalability:</strong> Add more machines = faster processing</li>
+                        <li><strong>Fault Tolerance:</strong> Failed tasks automatically restart</li>
+                        <li><strong>Simplicity:</strong> Developers only write map() and reduce()</li>
+                        <li><strong>Data Locality:</strong> Process data where it's stored</li>
+                    </ul>
+
+                    <h3>Real-World Uses:</h3>
+                    <ul>
+                        <li><strong>Google:</strong> Web indexing, PageRank calculation</li>
+                        <li><strong>Facebook:</strong> Log analysis, data warehousing</li>
+                        <li><strong>Netflix:</strong> Recommendation algorithms</li>
+                        <li><strong>Twitter:</strong> Trend analysis, user analytics</li>
+                    </ul>
+
+                    <h3>Try It:</h3>
+                    <ol>
+                        <li>Click "Start Job" to initialize</li>
+                        <li>Click "Execute Map Phase" to see parallel mapping</li>
+                        <li>Click "Execute Shuffle Phase" to see data partitioning</li>
+                        <li>Click "Execute Reduce Phase" to see final aggregation</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="../../session.js"></script>
+    <script src="../../theme.js"></script>
+    <script src="app.js" defer></script>
+</body>
+</html>
+

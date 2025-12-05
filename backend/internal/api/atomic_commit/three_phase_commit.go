@@ -5,17 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-
-	"sds/internal/simulation/three_phase_commit"
 )
-
-// Global coordinator instance for 3PC simulation
-var coordinator3PC *three_phase_commit.Coordinator
-
-// init3PC initializes the 3PC coordinator with 4 participants
-func init3PC() {
-	coordinator3PC = three_phase_commit.NewCoordinator(4)
-}
 
 // GetState3PC returns the current state of the 3PC coordinator and participants
 // GET /api/atomic-commit/3pc/state
@@ -27,6 +17,11 @@ func GetState3PC(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
+
+	// Get user's session
+	sessionID := getSessionID(r)
+	userState := sessionManager.GetOrCreate(sessionID)
+	coordinator3PC := userState.ThreePCCoordinator
 
 	// Create response with coordinator state
 	response := map[string]interface{}{
@@ -59,6 +54,11 @@ func StartTransaction3PC(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
+
+	// Get user's session
+	sessionID := getSessionID(r)
+	userState := sessionManager.GetOrCreate(sessionID)
+	coordinator3PC := userState.ThreePCCoordinator
 
 	// Get transaction data from query parameter
 	data := r.URL.Query().Get("data")
@@ -108,6 +108,11 @@ func ResetSystem3PC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get user's session
+	sessionID := getSessionID(r)
+	userState := sessionManager.GetOrCreate(sessionID)
+	coordinator3PC := userState.ThreePCCoordinator
+
 	// Reset the coordinator
 	coordinator3PC.Reset()
 
@@ -141,6 +146,11 @@ func SetParticipantVote3PC(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
+
+	// Get user's session
+	sessionID := getSessionID(r)
+	userState := sessionManager.GetOrCreate(sessionID)
+	coordinator3PC := userState.ThreePCCoordinator
 
 	// Get participant ID
 	participantIDStr := r.URL.Query().Get("participantId")
@@ -191,6 +201,11 @@ func SimulateFailure3PC(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
+
+	// Get user's session
+	sessionID := getSessionID(r)
+	userState := sessionManager.GetOrCreate(sessionID)
+	coordinator3PC := userState.ThreePCCoordinator
 
 	// Get node type
 	nodeType := r.URL.Query().Get("nodeType")

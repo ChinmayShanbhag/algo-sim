@@ -1,8 +1,16 @@
 package consensus
 
-import "net/http"
+import (
+	"net/http"
+	
+	"sds/internal/session"
+)
 
-func SetupRoutes() {
+var sessionManager *session.Manager
+
+func SetupRoutes(sm *session.Manager) {
+	sessionManager = sm
+	
 	// Raft consensus endpoints
 	http.HandleFunc("/api/consensus/raft/state", GetRaftState)
 	http.HandleFunc("/api/consensus/raft/election", StartElection)

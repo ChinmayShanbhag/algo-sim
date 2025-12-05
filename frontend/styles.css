@@ -112,10 +112,20 @@ main {
     border: 1px solid var(--border-color);
 }
 
+.simulations {
+    margin-bottom: 40px;
+}
+
 .simulations h2 {
     margin-top: 0;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
     color: var(--text-primary);
+    font-size: 1.5rem;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .simulation-grid {

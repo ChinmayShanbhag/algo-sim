@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Design Simulator</title>
+    <title>System Design Concepts Simulator</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div id="container">
         <header>
             <div class="header-top">
-                <h1>System Design Simulator</h1>
+                <h1>System Design Concepts Simulator</h1>
                 <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
                     <span class="theme-icon">🌙</span>
                 </button>
@@ -19,30 +19,92 @@
         </header>
         
         <main>
+            <!-- Consensus Algorithms -->
             <section class="simulations">
-                <h2>Available Simulations</h2>
+                <h2>🗳️ Consensus Algorithms</h2>
                 <div class="simulation-grid">
                     <a href="visualizations/consensus/index.html" class="simulation-card">
-                        <h3>Consensus Algorithms</h3>
-                        <p>Raft consensus algorithm visualization</p>
+                        <h3>Raft Consensus</h3>
+                        <p>Leader election and log replication in distributed systems</p>
                         <span class="status">Available</span>
                     </a>
+                </div>
+            </section>
+
+            <!-- Atomic Commit Protocols -->
+            <section class="simulations">
+                <h2>🔒 Atomic Commit Protocols</h2>
+                <div class="simulation-grid">
                     <a href="visualizations/atomic-commit/index.html" class="simulation-card">
                         <h3>Two-Phase Commit (2PC)</h3>
-                        <p>Classic atomic commit protocol visualization</p>
+                        <p>Classic atomic commit protocol with prepare and commit phases</p>
                         <span class="status">Available</span>
                     </a>
                     <a href="visualizations/three-phase-commit/index.html" class="simulation-card">
                         <h3>Three-Phase Commit (3PC)</h3>
-                        <p>Non-blocking atomic commit protocol with pre-commit phase</p>
+                        <p>Non-blocking atomic commit with pre-commit phase</p>
                         <span class="status">Available</span>
                     </a>
+                </div>
+            </section>
+
+            <!-- Data Structures -->
+            <section class="simulations">
+                <h2>📊 Data Structures</h2>
+                <div class="simulation-grid">
+                    <a href="visualizations/bloomfilter/index.html" class="simulation-card">
+                        <h3>Bloom Filter</h3>
+                        <p>Probabilistic data structure for set membership testing</p>
+                        <span class="status">Available</span>
+                    </a>
+                </div>
+            </section>
+
+            <!-- Caching & Eviction -->
+            <section class="simulations">
+                <h2>💾 Caching & Eviction</h2>
+                <div class="simulation-grid">
+                    <a href="visualizations/cache/index.html" class="simulation-card">
+                        <h3>Cache Eviction Policies</h3>
+                        <p>Compare LRU, LFU, and FIFO cache eviction strategies</p>
+                        <span class="status">Available</span>
+                    </a>
+                </div>
+            </section>
+
+            <!-- Rate Limiting -->
+            <section class="simulations">
+                <h2>🚦 Rate Limiting</h2>
+                <div class="simulation-grid">
                     <a href="visualizations/rate-limiting/index.html" class="simulation-card">
                         <h3>Rate Limiting Algorithms</h3>
-                        <p>Compare 5 algorithms: Fixed Window, Sliding Log, Sliding Window, Token Bucket, Leaky Bucket</p>
+                        <p>Fixed Window, Sliding Log, Sliding Window, Token Bucket, Leaky Bucket</p>
                         <span class="status">Available</span>
                     </a>
-                    <!-- More simulations will be added here -->
+                </div>
+            </section>
+
+            <!-- Distributed Processing -->
+            <section class="simulations">
+                <h2>⚙️ Distributed Processing</h2>
+                <div class="simulation-grid">
+                    <a href="visualizations/mapreduce/index.html" class="simulation-card">
+                        <h3>MapReduce Data Flow</h3>
+                        <p>Map, Shuffle, and Reduce phases with parallel execution</p>
+                        <span class="status">Available</span>
+                    </a>
+                </div>
+            </section>
+
+            <!-- Data Replication -->
+            <section class="simulations">
+                <h2>🔄 Data Replication</h2>
+                <div class="simulation-grid">
+                    <a href="visualizations/cdc/index.html" class="simulation-card">
+                        <h3>Change Data Capture (CDC)</h3>
+                        <p>Real-time data replication from database through Kafka to derived systems</p>
+                        <span class="status">Available</span>
+                    </a>
                 </div>
             </section>
         </main>

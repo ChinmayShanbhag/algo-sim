@@ -1,12 +1,17 @@
 package atomic_commit
 
-import "net/http"
+import (
+	"net/http"
+	
+	"sds/internal/session"
+)
+
+var sessionManager *session.Manager
 
 // SetupRoutes registers all atomic commit (2PC and 3PC) related endpoints
 // This function is called from the main API routes setup
-func SetupRoutes() {
-	// Initialize 3PC coordinator
-	init3PC()
+func SetupRoutes(sm *session.Manager) {
+	sessionManager = sm
 	
 	// Two-Phase Commit endpoints
 	http.HandleFunc("/api/atomic-commit/2pc/state", GetState)
@@ -21,5 +26,23 @@ func SetupRoutes() {
 	http.HandleFunc("/api/atomic-commit/3pc/reset", ResetSystem3PC)
 	http.HandleFunc("/api/atomic-commit/3pc/set-participant-vote", SetParticipantVote3PC)
 	http.HandleFunc("/api/atomic-commit/3pc/simulate-failure", SimulateFailure3PC)
+}
+
+// Helper function to extract session ID from request
+func getSessionID(r *http.Request) string {
+	// Try header first
+	sessionID := r.Header.Get("X-Session-ID")
+	if sessionID != "" {
+		return sessionID
+	}
+	
+	// Fallback to query parameter
+	sessionID = r.URL.Query().Get("session_id")
+	if sessionID != "" {
+		return sessionID
+	}
+	
+	// Default session for backward compatibility
+	return "default"
 }
 

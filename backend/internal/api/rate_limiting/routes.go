@@ -4,42 +4,35 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"time"
 	
-	"sds/internal/simulation/rate_limiting"
+	"sds/internal/session"
 )
 
-// Global rate limiters
-var (
-	fixedWindow       *rate_limiting.FixedWindowCounter
-	slidingLog        *rate_limiting.SlidingLog
-	slidingWindow     *rate_limiting.SlidingWindowCounter
-	tokenBucket       *rate_limiting.TokenBucket
-	leakyBucket       *rate_limiting.LeakyBucket
-)
+var sessionManager *session.Manager
 
-// init initializes all rate limiters with the same constraints:
-// 10 requests per 60 seconds
-func init() {
-	limit := 10
-	windowSize := 60 * time.Second
+// Helper function to extract session ID from request
+func getSessionID(r *http.Request) string {
+	// Try header first
+	sessionID := r.Header.Get("X-Session-ID")
+	if sessionID != "" {
+		return sessionID
+	}
 	
-	fixedWindow = rate_limiting.NewFixedWindowCounter(limit, windowSize)
-	slidingLog = rate_limiting.NewSlidingLog(limit, windowSize)
-	slidingWindow = rate_limiting.NewSlidingWindowCounter(limit, windowSize)
+	// Fallback to query parameter
+	sessionID = r.URL.Query().Get("session_id")
+	if sessionID != "" {
+		return sessionID
+	}
 	
-	// Token bucket: capacity = limit, refill rate = limit/windowSize
-	tokenBucket = rate_limiting.NewTokenBucket(limit, float64(limit)/windowSize.Seconds())
-	
-	// Leaky bucket: capacity = limit, process rate = limit/windowSize
-	leakyBucket = rate_limiting.NewLeakyBucket(limit, float64(limit)/windowSize.Seconds())
+	// Default session for backward compatibility
+	return "default"
 }
 
 // setCORSHeaders sets CORS headers for cross-origin requests
 func setCORSHeaders(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:8000")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Session-ID")
 }
 
 // GetAllStates returns the current state of all rate limiters
@@ -52,12 +45,16 @@ func GetAllStates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	// Get user's session
+	sessionID := getSessionID(r)
+	userState := sessionManager.GetOrCreate(sessionID)
+	
 	response := map[string]interface{}{
-		"fixedWindow":   fixedWindow.GetState(),
-		"slidingLog":    slidingLog.GetState(),
-		"slidingWindow": slidingWindow.GetState(),
-		"tokenBucket":   tokenBucket.GetState(),
-		"leakyBucket":   leakyBucket.GetState(),
+		"fixedWindow":   userState.FixedWindow.GetState(),
+		"slidingLog":    userState.SlidingLog.GetState(),
+		"slidingWindow": userState.SlidingWindow.GetState(),
+		"tokenBucket":   userState.TokenBucket.GetState(),
+		"leakyBucket":   userState.LeakyBucket.GetState(),
 	}
 	
 	responseJSON, err := json.Marshal(response)
@@ -80,24 +77,28 @@ func SendRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	// Get user's session
+	sessionID := getSessionID(r)
+	userState := sessionManager.GetOrCreate(sessionID)
+	
 	// Send request to all rate limiters
 	results := map[string]interface{}{
-		"fixedWindow":   fixedWindow.AllowRequest(),
-		"slidingLog":    slidingLog.AllowRequest(),
-		"slidingWindow": slidingWindow.AllowRequest(),
-		"tokenBucket":   tokenBucket.AllowRequest(),
-		"leakyBucket":   leakyBucket.AllowRequest(),
+		"fixedWindow":   userState.FixedWindow.AllowRequest(),
+		"slidingLog":    userState.SlidingLog.AllowRequest(),
+		"slidingWindow": userState.SlidingWindow.AllowRequest(),
+		"tokenBucket":   userState.TokenBucket.AllowRequest(),
+		"leakyBucket":   userState.LeakyBucket.AllowRequest(),
 	}
 	
 	// Get updated states
 	response := map[string]interface{}{
 		"results": results,
 		"states": map[string]interface{}{
-			"fixedWindow":   fixedWindow.GetState(),
-			"slidingLog":    slidingLog.GetState(),
-			"slidingWindow": slidingWindow.GetState(),
-			"tokenBucket":   tokenBucket.GetState(),
-			"leakyBucket":   leakyBucket.GetState(),
+			"fixedWindow":   userState.FixedWindow.GetState(),
+			"slidingLog":    userState.SlidingLog.GetState(),
+			"slidingWindow": userState.SlidingWindow.GetState(),
+			"tokenBucket":   userState.TokenBucket.GetState(),
+			"leakyBucket":   userState.LeakyBucket.GetState(),
 		},
 	}
 	
@@ -121,6 +122,10 @@ func SendBurstRequests(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	// Get user's session
+	sessionID := getSessionID(r)
+	userState := sessionManager.GetOrCreate(sessionID)
+	
 	// Get count from query parameter
 	countStr := r.URL.Query().Get("count")
 	count, err := strconv.Atoi(countStr)
@@ -133,11 +138,11 @@ func SendBurstRequests(w http.ResponseWriter, r *http.Request) {
 	
 	for i := 0; i < count; i++ {
 		allResults[i] = map[string]interface{}{
-			"fixedWindow":   fixedWindow.AllowRequest(),
-			"slidingLog":    slidingLog.AllowRequest(),
-			"slidingWindow": slidingWindow.AllowRequest(),
-			"tokenBucket":   tokenBucket.AllowRequest(),
-			"leakyBucket":   leakyBucket.AllowRequest(),
+			"fixedWindow":   userState.FixedWindow.AllowRequest(),
+			"slidingLog":    userState.SlidingLog.AllowRequest(),
+			"slidingWindow": userState.SlidingWindow.AllowRequest(),
+			"tokenBucket":   userState.TokenBucket.AllowRequest(),
+			"leakyBucket":   userState.LeakyBucket.AllowRequest(),
 		}
 	}
 	
@@ -146,11 +151,11 @@ func SendBurstRequests(w http.ResponseWriter, r *http.Request) {
 		"count":   count,
 		"results": allResults,
 		"states": map[string]interface{}{
-			"fixedWindow":   fixedWindow.GetState(),
-			"slidingLog":    slidingLog.GetState(),
-			"slidingWindow": slidingWindow.GetState(),
-			"tokenBucket":   tokenBucket.GetState(),
-			"leakyBucket":   leakyBucket.GetState(),
+			"fixedWindow":   userState.FixedWindow.GetState(),
+			"slidingLog":    userState.SlidingLog.GetState(),
+			"slidingWindow": userState.SlidingWindow.GetState(),
+			"tokenBucket":   userState.TokenBucket.GetState(),
+			"leakyBucket":   userState.LeakyBucket.GetState(),
 		},
 	}
 	
@@ -174,19 +179,23 @@ func ResetAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	fixedWindow.Reset()
-	slidingLog.Reset()
-	slidingWindow.Reset()
-	tokenBucket.Reset()
-	leakyBucket.Reset()
+	// Get user's session
+	sessionID := getSessionID(r)
+	userState := sessionManager.GetOrCreate(sessionID)
+	
+	userState.FixedWindow.Reset()
+	userState.SlidingLog.Reset()
+	userState.SlidingWindow.Reset()
+	userState.TokenBucket.Reset()
+	userState.LeakyBucket.Reset()
 	
 	// Return new states
 	response := map[string]interface{}{
-		"fixedWindow":   fixedWindow.GetState(),
-		"slidingLog":    slidingLog.GetState(),
-		"slidingWindow": slidingWindow.GetState(),
-		"tokenBucket":   tokenBucket.GetState(),
-		"leakyBucket":   leakyBucket.GetState(),
+		"fixedWindow":   userState.FixedWindow.GetState(),
+		"slidingLog":    userState.SlidingLog.GetState(),
+		"slidingWindow": userState.SlidingWindow.GetState(),
+		"tokenBucket":   userState.TokenBucket.GetState(),
+		"leakyBucket":   userState.LeakyBucket.GetState(),
 	}
 	
 	responseJSON, err := json.Marshal(response)
@@ -200,7 +209,9 @@ func ResetAll(w http.ResponseWriter, r *http.Request) {
 }
 
 // SetupRoutes registers all rate limiting endpoints
-func SetupRoutes() {
+func SetupRoutes(sm *session.Manager) {
+	sessionManager = sm
+	
 	http.HandleFunc("/api/rate-limiting/state", GetAllStates)
 	http.HandleFunc("/api/rate-limiting/send-request", SendRequest)
 	http.HandleFunc("/api/rate-limiting/send-burst", SendBurstRequests)

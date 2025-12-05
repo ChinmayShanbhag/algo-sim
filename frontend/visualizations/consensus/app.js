@@ -8,6 +8,14 @@
 
 const API_BASE = 'http://localhost:8080/api/consensus/raft';
 
+// Helper function to add session header to fetch options
+function addSessionHeader(options = {}) {
+    if (typeof window.SDS_SESSION !== 'undefined') {
+        return window.SDS_SESSION.addSessionHeader(options);
+    }
+    return options;
+}
+
 let svg;
 let clusterData = null;
 let electionSteps = [];
@@ -84,7 +92,7 @@ function showLoading() {
 
 function loadRaftState() {
     console.log('Loading Raft state from:', `${API_BASE}/state`);
-    return fetch(`${API_BASE}/state`)
+    return fetch(`${API_BASE}/state`, addSessionHeader())
         .then(response => {
             console.log('Response status:', response.status, response.statusText);
             if (!response.ok) {
@@ -440,9 +448,9 @@ function startElection(nodeId) {
         
         showFeedback(`Node ${nodeId} is starting an election...`);
         
-        fetch(`${API_BASE}/election?nodeId=${nodeId}`, {
+        fetch(`${API_BASE}/election?nodeId=${nodeId}`, addSessionHeader({
             method: 'POST'
-        })
+        }))
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -674,9 +682,9 @@ function resetCluster() {
     showCurrentStep(null);
     showElectionSteps([], -1);
     
-    fetch(`${API_BASE}/reset`, {
+    fetch(`${API_BASE}/reset`, addSessionHeader({
         method: 'POST'
-    })
+    }))
         .then(response => {
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -689,7 +697,7 @@ function resetCluster() {
             // If in manual mode, set a random leader
             if (electionMode === 'manual') {
                 const leaderId = Math.floor(Math.random() * data.nodes.length);
-                return fetch(`${API_BASE}/set-leader?nodeId=${leaderId}`, { method: 'POST' });
+                return fetch(`${API_BASE}/set-leader?nodeId=${leaderId}`, addSessionHeader({ method: 'POST' }));
             }
             return Promise.resolve({ json: () => Promise.resolve(data) });
         })
@@ -783,7 +791,7 @@ function updateModeUI() {
                 
                 // Set a random node as initial leader
                 const leaderId = Math.floor(Math.random() * data.nodes.length);
-                return fetch(`${API_BASE}/set-leader?nodeId=${leaderId}`, { method: 'POST' });
+                return fetch(`${API_BASE}/set-leader?nodeId=${leaderId}`, addSessionHeader({ method: 'POST' }));
             })
             .then(response => response.json())
             .then(data => {

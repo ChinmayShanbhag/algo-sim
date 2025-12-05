@@ -4,11 +4,16 @@ import (
 	"net/http"
 	
 	"sds/internal/api/atomic_commit"
+	"sds/internal/api/bloomfilter"
+	"sds/internal/api/cache"
+	"sds/internal/api/cdc"
 	"sds/internal/api/consensus"
+	"sds/internal/api/mapreduce"
 	"sds/internal/api/rate_limiting"
+	"sds/internal/session"
 )
 
-func SetupRoutes() {
+func SetupRoutes(sessionManager *session.Manager) {
 	// Health check endpoint
 	http.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -16,12 +21,24 @@ func SetupRoutes() {
 	})
 	
 	// Consensus algorithm endpoints
-	consensus.SetupRoutes()
+	consensus.SetupRoutes(sessionManager)
 	
 	// Atomic commit (2PC and 3PC) endpoints
-	atomic_commit.SetupRoutes()
+	atomic_commit.SetupRoutes(sessionManager)
 	
 	// Rate limiting endpoints
-	rate_limiting.SetupRoutes()
+	rate_limiting.SetupRoutes(sessionManager)
+	
+	// Cache eviction endpoints
+	cache.SetupRoutes(sessionManager)
+	
+	// MapReduce endpoints
+	mapreduce.SetupRoutes(sessionManager)
+	
+	// CDC (Change Data Capture) endpoints
+	cdc.SetupRoutes(sessionManager)
+	
+	// Bloom Filter endpoints
+	bloomfilter.SetupRoutes(sessionManager)
 }
 

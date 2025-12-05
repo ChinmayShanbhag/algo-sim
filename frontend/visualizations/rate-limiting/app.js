@@ -6,6 +6,14 @@
 
 const API_BASE = 'http://localhost:8080/api/rate-limiting';
 
+// Helper function to add session header to fetch options
+function addSessionHeader(options = {}) {
+    if (typeof window.SDS_SESSION !== 'undefined') {
+        return window.SDS_SESSION.addSessionHeader(options);
+    }
+    return options;
+}
+
 let allStates = null;
 
 // Track previous values for drop animations
@@ -19,7 +27,7 @@ function initVisualization() {
 }
 
 function loadStates() {
-    fetch(`${API_BASE}/state`)
+    fetch(`${API_BASE}/state`, addSessionHeader())
         .then(response => response.json())
         .then(data => {
             allStates = data;
@@ -213,7 +221,7 @@ function renderHistory(container, history) {
 }
 
 function sendSingleRequest() {
-    fetch(`${API_BASE}/send-request`, { method: 'POST' })
+    fetch(`${API_BASE}/send-request`, addSessionHeader({ method: 'POST' }))
         .then(response => response.json())
         .then(data => {
             allStates = data.states;
@@ -238,7 +246,7 @@ function sendBurstRequests() {
     burstBtn.disabled = true;
     burstBtn.textContent = 'Sending 10 requests...';
     
-    fetch(`${API_BASE}/send-burst?count=10`, { method: 'POST' })
+    fetch(`${API_BASE}/send-burst?count=10`, addSessionHeader({ method: 'POST' }))
         .then(response => response.json())
         .then(data => {
             allStates = data.states;
@@ -279,7 +287,7 @@ function sendBurstRequests() {
 }
 
 function resetAll() {
-    fetch(`${API_BASE}/reset`, { method: 'POST' })
+    fetch(`${API_BASE}/reset`, addSessionHeader({ method: 'POST' }))
         .then(response => response.json())
         .then(data => {
             allStates = data;

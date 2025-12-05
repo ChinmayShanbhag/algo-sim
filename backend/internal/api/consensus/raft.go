@@ -4,21 +4,31 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"sds/internal/simulation/raft"
 )
 
-var raftCluster *raft.Cluster
-
-func init() {
-	// Initialize a default cluster with 5 nodes (typical for Raft)
-	raftCluster = raft.NewCluster(5)
+// Helper function to extract session ID from request
+func getSessionID(r *http.Request) string {
+	// Try header first
+	sessionID := r.Header.Get("X-Session-ID")
+	if sessionID != "" {
+		return sessionID
+	}
+	
+	// Fallback to query parameter
+	sessionID = r.URL.Query().Get("session_id")
+	if sessionID != "" {
+		return sessionID
+	}
+	
+	// Default session for backward compatibility
+	return "default"
 }
 
 // setCORSHeaders sets CORS headers for all responses
 func setCORSHeaders(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:8000")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Session-ID")
 }
 
 // GetRaftState returns the current state of the Raft cluster
@@ -31,7 +41,11 @@ func GetRaftState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	state, err := raftCluster.GetState()
+	// Get user's session
+	sessionID := getSessionID(r)
+	userState := sessionManager.GetOrCreate(sessionID)
+	
+	state, err := userState.RaftCluster.GetState()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -51,6 +65,10 @@ func StartElection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	// Get user's session
+	sessionID := getSessionID(r)
+	userState := sessionManager.GetOrCreate(sessionID)
+	
 	// Get node ID from query parameter
 	nodeIDStr := r.URL.Query().Get("nodeId")
 	nodeID, err := strconv.Atoi(nodeIDStr)
@@ -60,14 +78,14 @@ func StartElection(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	// Start election step by step
-	steps, err := raftCluster.StartElectionStepByStep(nodeID)
+	steps, err := userState.RaftCluster.StartElectionStepByStep(nodeID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	
 	// Get state with steps
-	state, err := raftCluster.GetState()
+	state, err := userState.RaftCluster.GetState()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -103,9 +121,13 @@ func ResetCluster(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	raftCluster.Reset()
+	// Get user's session
+	sessionID := getSessionID(r)
+	userState := sessionManager.GetOrCreate(sessionID)
 	
-	state, err := raftCluster.GetState()
+	userState.RaftCluster.Reset()
+	
+	state, err := userState.RaftCluster.GetState()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -125,6 +147,10 @@ func SetLeader(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	// Get user's session
+	sessionID := getSessionID(r)
+	userState := sessionManager.GetOrCreate(sessionID)
+	
 	// Get node ID from query parameter
 	nodeIDStr := r.URL.Query().Get("nodeId")
 	nodeID, err := strconv.Atoi(nodeIDStr)
@@ -133,13 +159,13 @@ func SetLeader(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	err = raftCluster.SetLeader(nodeID)
+	err = userState.RaftCluster.SetLeader(nodeID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	
-	state, err := raftCluster.GetState()
+	state, err := userState.RaftCluster.GetState()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

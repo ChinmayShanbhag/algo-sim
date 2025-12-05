@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change Data Capture (CDC) Architecture</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="container">
+        <nav class="top-nav">
+            <a href="../../index.html" class="back-link">← Back to Home</a>
+            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+                <span class="theme-icon">🌙</span>
+            </button>
+        </nav>
+        <h1>Change Data Capture (CDC) Architecture</h1>
+        
+        <div id="controls">
+            <div class="control-group">
+                <h3>Database Operations</h3>
+                <div class="controls-row">
+                    <input type="text" id="name-input" placeholder="Name" class="input-field">
+                    <input type="text" id="email-input" placeholder="Email" class="input-field">
+                    <select id="status-select" class="input-field">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                    <button id="insert-btn" class="primary-button">INSERT</button>
+                </div>
+                <div class="controls-row">
+                    <input type="text" id="update-id-input" placeholder="ID" class="input-field-small">
+                    <input type="text" id="update-name-input" placeholder="Name" class="input-field">
+                    <input type="text" id="update-email-input" placeholder="Email" class="input-field">
+                    <select id="update-status-select" class="input-field">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                    <button id="update-btn" class="secondary-button">UPDATE</button>
+                </div>
+                <div class="controls-row">
+                    <input type="text" id="delete-id-input" placeholder="ID to delete" class="input-field-small">
+                    <button id="delete-btn" class="danger-button">DELETE</button>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h3>CDC Pipeline Control</h3>
+                <div class="controls-row">
+                    <button id="stream-btn" class="action-button">📤 Stream to Kafka</button>
+                    <button id="consume-btn" class="action-button">📥 Consume from Kafka</button>
+                    <button id="reset-btn" class="reset-button">Reset System</button>
+                </div>
+                <div id="feedback" class="feedback"></div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="pipeline-container">
+                <!-- Primary Database -->
+                <div class="pipeline-stage" id="database-stage">
+                    <h2>🗄️ Primary Database</h2>
+                    <div class="stage-content">
+                        <div id="database-records" class="records-container"></div>
+                        <div class="subsection">
+                            <h4>Replication Log (WAL)</h4>
+                            <div id="replication-log" class="log-container"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Arrow -->
+                <div class="pipeline-arrow">
+                    <div class="arrow-label">CDC Connector</div>
+                    <div class="arrow-line"></div>
+                    <div class="arrow-head">▼</div>
+                </div>
+
+                <!-- Kafka Broker -->
+                <div class="pipeline-stage" id="kafka-stage">
+                    <h2>📨 Kafka Broker</h2>
+                    <div class="stage-content">
+                        <div class="subsection">
+                            <h4>Topic: db.changes.users</h4>
+                            <div id="kafka-messages" class="messages-container"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Arrow -->
+                <div class="pipeline-arrow">
+                    <div class="arrow-label">Consumers</div>
+                    <div class="arrow-line"></div>
+                    <div class="arrow-head">▼</div>
+                </div>
+
+                <!-- Derived Systems -->
+                <div class="pipeline-stage" id="derived-stage">
+                    <h2>🎯 Derived Systems</h2>
+                    <div class="stage-content">
+                        <div class="derived-systems-grid">
+                            <div class="derived-system">
+                                <h4>🔍 Search Index (Elasticsearch)</h4>
+                                <div id="search-index" class="derived-container"></div>
+                            </div>
+                            <div class="derived-system">
+                                <h4>⚡ Cache (Redis)</h4>
+                                <div id="cache" class="derived-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Panel -->
+            <div id="stats-panel">
+                <h2>📊 Pipeline Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">Total Changes</span>
+                        <span id="stat-total" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Processed</span>
+                        <span id="stat-processed" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Messages Sent</span>
+                        <span id="stat-messages" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Search Indexed</span>
+                        <span id="stat-search" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Cache Updated</span>
+                        <span id="stat-cache" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Avg Latency</span>
+                        <span id="stat-latency" class="stat-value">0ms</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Explanation Panel -->
+            <div id="explanation-panel">
+                <h2>Understanding CDC Architecture</h2>
+                <div class="explanation-content">
+                    <h3>What is Change Data Capture? 📸</h3>
+                    <p>CDC is a design pattern that captures changes (inserts, updates, deletes) from a database and streams them to other systems in real-time. This enables building derived data systems that stay synchronized without polling or batch jobs.</p>
+
+                    <h3>How It Works:</h3>
+                    
+                    <h4>1. Primary Database 🗄️</h4>
+                    <ul>
+                        <li><strong>Write-Ahead Log (WAL):</strong> Every change is first written to a log</li>
+                        <li><strong>Replication Log:</strong> CDC reads from this log continuously</li>
+                        <li><strong>Non-intrusive:</strong> No triggers or application changes needed</li>
+                    </ul>
+
+                    <h4>2. CDC Connector 🔌</h4>
+                    <ul>
+                        <li><strong>Tail the Log:</strong> Reads new entries as they're written</li>
+                        <li><strong>Parse Changes:</strong> Extracts operation type and data</li>
+                        <li><strong>Transform:</strong> Converts to event format</li>
+                    </ul>
+
+                    <h4>3. Message Broker (Kafka) 📨</h4>
+                    <ul>
+                        <li><strong>Durable Queue:</strong> Stores events reliably</li>
+                        <li><strong>Partitioning:</strong> Distributes load across partitions</li>
+                        <li><strong>Ordering:</strong> Maintains order within partitions</li>
+                        <li><strong>Replay:</strong> Consumers can reprocess from any point</li>
+                    </ul>
+
+                    <h4>4. Derived Systems 🎯</h4>
+                    <ul>
+                        <li><strong>Search Index:</strong> Full-text search (Elasticsearch)</li>
+                        <li><strong>Cache:</strong> Fast access layer (Redis)</li>
+                        <li><strong>Analytics DB:</strong> OLAP queries (ClickHouse)</li>
+                        <li><strong>Data Warehouse:</strong> Historical analysis</li>
+                    </ul>
+
+                    <h3>Key Benefits:</h3>
+                    <ul>
+                        <li><strong>Real-time:</strong> Changes propagate in milliseconds</li>
+                        <li><strong>Decoupled:</strong> Systems evolve independently</li>
+                        <li><strong>Reliable:</strong> Guaranteed delivery with Kafka</li>
+                        <li><strong>Scalable:</strong> Add consumers without impacting source</li>
+                        <li><strong>Auditable:</strong> Complete history of all changes</li>
+                    </ul>
+
+                    <h3>Real-World Examples:</h3>
+                    <ul>
+                        <li><strong>LinkedIn:</strong> Powers search, recommendations, analytics</li>
+                        <li><strong>Uber:</strong> Real-time trip updates, driver matching</li>
+                        <li><strong>Netflix:</strong> Personalization, A/B testing</li>
+                        <li><strong>Airbnb:</strong> Search indexing, pricing optimization</li>
+                    </ul>
+
+                    <h3>Popular CDC Tools:</h3>
+                    <ul>
+                        <li><strong>Debezium:</strong> Open-source CDC for various databases</li>
+                        <li><strong>AWS DMS:</strong> Database Migration Service with CDC</li>
+                        <li><strong>Confluent:</strong> Kafka-based CDC platform</li>
+                        <li><strong>Maxwell:</strong> MySQL CDC to Kafka</li>
+                    </ul>
+
+                    <h3>Try It:</h3>
+                    <ol>
+                        <li>INSERT a new user record</li>
+                        <li>Click "Stream to Kafka" to capture changes</li>
+                        <li>Click "Consume from Kafka" to update derived systems</li>
+                        <li>Try UPDATE and DELETE operations</li>
+                        <li>Watch how changes flow through the pipeline!</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="../../session.js"></script>
+    <script src="../../theme.js"></script>
+    <script src="app.js" defer></script>
+</body>
+</html>
+

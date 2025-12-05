@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cache Eviction Policies</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="container">
+        <nav class="top-nav">
+            <a href="../../index.html" class="back-link">← Back to Home</a>
+            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+                <span class="theme-icon">🌙</span>
+            </button>
+        </nav>
+        <h1>Cache Eviction Policies</h1>
+        
+        <div id="controls">
+            <div class="control-group">
+                <h3>Cache Operations</h3>
+                <div class="controls-row">
+                    <div class="input-group">
+                        <label for="operation-select">Operation:</label>
+                        <select id="operation-select">
+                            <option value="PUT">PUT (Add/Update)</option>
+                            <option value="GET">GET (Read)</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="key-input">Key:</label>
+                        <input type="text" id="key-input" placeholder="e.g., A" maxlength="10">
+                    </div>
+                    <div class="input-group" id="value-group">
+                        <label for="value-input">Value:</label>
+                        <input type="text" id="value-input" placeholder="e.g., Data A" maxlength="20">
+                    </div>
+                    <button id="execute-btn" class="primary-button">Execute</button>
+                    <button id="reset-btn" class="reset-button">Reset All</button>
+                </div>
+                <div id="operation-feedback"></div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div id="visualization-grid">
+                <!-- LRU Cache -->
+                <div class="cache-card" id="lru-card">
+                    <h2>LRU (Least Recently Used) 🕐</h2>
+                    <p class="description">Evicts the item that hasn't been accessed for the longest time. Most recently used items stay in cache.</p>
+                    <div class="cache-info">
+                        <span>Capacity: <strong id="lru-capacity">5</strong></span>
+                        <span>Size: <strong id="lru-size">0</strong></span>
+                    </div>
+                    <div class="cache-visualization" id="lru-viz"></div>
+                    <div class="cache-history">
+                        <h4>Recent Operations</h4>
+                        <div id="lru-history" class="history-list"></div>
+                    </div>
+                </div>
+
+                <!-- LFU Cache -->
+                <div class="cache-card" id="lfu-card">
+                    <h2>LFU (Least Frequently Used) 📊</h2>
+                    <p class="description">Evicts the item with the lowest access count. If frequencies are equal, uses LRU (least recently used) as tie-breaker.</p>
+                    <div class="cache-info">
+                        <span>Capacity: <strong id="lfu-capacity">5</strong></span>
+                        <span>Size: <strong id="lfu-size">0</strong></span>
+                    </div>
+                    <div class="cache-visualization" id="lfu-viz"></div>
+                    <div class="cache-history">
+                        <h4>Recent Operations</h4>
+                        <div id="lfu-history" class="history-list"></div>
+                    </div>
+                </div>
+
+                <!-- FIFO Cache -->
+                <div class="cache-card" id="fifo-card">
+                    <h2>FIFO (First In First Out) ➡️</h2>
+                    <p class="description">Evicts the oldest inserted item, regardless of how often it's accessed. Simple queue-based eviction.</p>
+                    <div class="cache-info">
+                        <span>Capacity: <strong id="fifo-capacity">5</strong></span>
+                        <span>Size: <strong id="fifo-size">0</strong></span>
+                    </div>
+                    <div class="cache-visualization" id="fifo-viz"></div>
+                    <div class="cache-history">
+                        <h4>Recent Operations</h4>
+                        <div id="fifo-history" class="history-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="explanation-panel">
+                <h2>Understanding Cache Eviction Policies</h2>
+                <div class="explanation-content">
+                    <h3>Why Cache Eviction? 💾</h3>
+                    <p>Caches have limited space. When full, we need to decide which item to remove (evict) to make room for new data. Different eviction policies optimize for different access patterns.</p>
+
+                    <h3>Comparison Table:</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Policy</th>
+                                <th>Eviction Strategy</th>
+                                <th>Best For</th>
+                                <th>Complexity</th>
+                                <th>Tracks</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>LRU</strong></td>
+                                <td>Remove least recently accessed</td>
+                                <td>Temporal locality (recent data likely needed again)</td>
+                                <td>O(1) get/put</td>
+                                <td>Access time</td>
+                            </tr>
+                            <tr>
+                                <td><strong>LFU</strong></td>
+                                <td>Remove least frequently accessed (LRU for ties)</td>
+                                <td>Popular items (some data accessed much more)</td>
+                                <td>O(1) get/put</td>
+                                <td>Access count + time</td>
+                            </tr>
+                            <tr>
+                                <td><strong>FIFO</strong></td>
+                                <td>Remove oldest inserted</td>
+                                <td>Simple, predictable eviction</td>
+                                <td>O(1) get/put</td>
+                                <td>Insertion order</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h3>Key Differences:</h3>
+                    <ul>
+                        <li><strong>LRU</strong>: "When did you last use it?" - Cares about recency</li>
+                        <li><strong>LFU</strong>: "How often do you use it?" - Cares about frequency (uses LRU for tie-breaking when frequencies are equal)</li>
+                        <li><strong>FIFO</strong>: "When was it added?" - Doesn't care about usage at all</li>
+                    </ul>
+
+                    <h3>Example Scenario:</h3>
+                    <div class="example-box">
+                        <p><strong>Cache capacity: 3 items</strong></p>
+                        <p><strong>Operations:</strong></p>
+                        <ol>
+                            <li>PUT A, B, C (cache full)</li>
+                            <li>GET A, GET A, GET B (A accessed 2x, B accessed 1x)</li>
+                            <li>PUT D (need to evict one item)</li>
+                        </ol>
+                        <p><strong>Which item gets evicted?</strong></p>
+                        <ul>
+                            <li><strong>LRU</strong>: Evicts C (least recently used)</li>
+                            <li><strong>LFU</strong>: Evicts C (never accessed after insertion)</li>
+                            <li><strong>FIFO</strong>: Evicts A (first inserted, regardless of usage)</li>
+                        </ul>
+                    </div>
+
+                    <h3>Real-World Usage:</h3>
+                    <ul>
+                        <li><strong>LRU</strong>: Web browsers, OS page caches, CDNs</li>
+                        <li><strong>LFU</strong>: Database query caches, DNS caches</li>
+                        <li><strong>FIFO</strong>: Simple buffers, hardware caches</li>
+                    </ul>
+
+                    <h3>Try It Out:</h3>
+                    <ol>
+                        <li>Add items A, B, C, D, E (fills cache to capacity)</li>
+                        <li>Add item F - see which item each policy evicts</li>
+                        <li>Access item A multiple times, then add item G</li>
+                        <li>Notice how each policy makes different eviction decisions!</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="../../session.js"></script>
+    <script src="../../theme.js"></script>
+    <script src="app.js" defer></script>
+</body>
+</html>
+
