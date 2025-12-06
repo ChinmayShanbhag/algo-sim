@@ -9,7 +9,9 @@ import (
 	"sds/internal/api/cdc"
 	"sds/internal/api/consensus"
 	"sds/internal/api/mapreduce"
+	"sds/internal/api/pagination"
 	"sds/internal/api/rate_limiting"
+	"sds/internal/api/tcpudp"
 	"sds/internal/session"
 )
 
@@ -40,5 +42,11 @@ func SetupRoutes(sessionManager *session.Manager) {
 	
 	// Bloom Filter endpoints
 	bloomfilter.SetupRoutes(sessionManager)
+	
+	// TCP/UDP endpoints
+	tcpudp.SetupRoutes(sessionManager)
+	
+	// Pagination endpoints
+	pagination.SetupRoutes(sessionManager)
 }
 

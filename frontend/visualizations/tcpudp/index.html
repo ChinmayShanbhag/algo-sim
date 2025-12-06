@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCP vs UDP Comparison</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="container">
+        <nav class="top-nav">
+            <a href="../../index.html" class="back-link">← Back to Home</a>
+            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+                <span class="theme-icon">🌙</span>
+            </button>
+        </nav>
+        <h1>TCP vs UDP: Protocol Comparison</h1>
+        
+        <div class="instruction-banner">
+            <p>📝 <strong>How to use:</strong> Enter packet data → Click "Send to Both Protocols" → Watch TCP and UDP handle the same data differently</p>
+        </div>
+        
+        <div id="controls">
+            <div class="control-group">
+                <h3>Connection Management</h3>
+                <div class="controls-row">
+                    <button id="connect-btn" class="connect-button">🔌 Establish TCP Connection</button>
+                    <button id="disconnect-btn" class="disconnect-button" disabled>🔌 Close TCP Connection</button>
+                </div>
+                <p class="control-help">TCP requires a 3-way handshake (SYN → SYN-ACK → ACK) before data transmission. UDP is connectionless.</p>
+            </div>
+            
+            <div class="control-group">
+                <h3>Send Packets</h3>
+                <div class="controls-row">
+                    <input type="text" id="packet-data" placeholder="Enter packet data (e.g., 'Hello World')" class="input-field">
+                    <button id="send-btn" class="send-button">📤 Send to Both Protocols</button>
+                    <button id="reset-btn" class="reset-button">Reset</button>
+                </div>
+                <p class="control-help">Sends the same data via both TCP and UDP simultaneously to compare behavior</p>
+            </div>
+            
+            <div class="control-group">
+                <h3>Packet Loss Rate: <span id="loss-rate-display">20%</span></h3>
+                <input type="range" id="loss-rate-slider" min="0" max="100" value="20" step="5">
+                <p class="slider-help">Adjust to simulate network conditions (0% = perfect network, 100% = all packets lost)</p>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="protocols-wrapper">
+                <div class="protocols-container">
+                <!-- TCP Protocol -->
+                <div class="protocol-section tcp-section">
+                    <h2>🔒 TCP (Transmission Control Protocol)</h2>
+                    <div class="protocol-features">
+                        <span class="feature-badge">✅ Reliable</span>
+                        <span class="feature-badge">✅ Ordered</span>
+                        <span class="feature-badge">✅ Connection-Based</span>
+                        <span class="feature-badge">⚠️ Slower</span>
+                    </div>
+                    
+                    <div class="visualization-area">
+                        <div class="endpoint">Sender</div>
+                        <div class="packet-lane" id="tcp-lane"></div>
+                        <div class="endpoint">Receiver</div>
+                    </div>
+                    
+                    <div class="packets-list">
+                        <h4>Recent Packets</h4>
+                        <div id="tcp-packets"></div>
+                    </div>
+                    
+                    <div class="stats-panel">
+                        <h4>📊 Statistics</h4>
+                        <div class="stat-row">
+                            <span>Sent:</span>
+                            <span id="tcp-sent" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Delivered:</span>
+                            <span id="tcp-delivered" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Retried:</span>
+                            <span id="tcp-retried" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Lost (Max Retries):</span>
+                            <span id="tcp-lost" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>ACKs:</span>
+                            <span id="tcp-acks" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Delivery Rate:</span>
+                            <span id="tcp-rate" class="stat-value">0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- UDP Protocol -->
+                <div class="protocol-section udp-section">
+                    <h2>⚡ UDP (User Datagram Protocol)</h2>
+                    <div class="protocol-features">
+                        <span class="feature-badge">❌ Unreliable</span>
+                        <span class="feature-badge">❌ Unordered</span>
+                        <span class="feature-badge">✅ Connectionless</span>
+                        <span class="feature-badge">✅ Faster</span>
+                    </div>
+                    
+                    <div class="visualization-area">
+                        <div class="endpoint">Sender</div>
+                        <div class="packet-lane" id="udp-lane"></div>
+                        <div class="endpoint">Receiver</div>
+                    </div>
+                    
+                    <div class="packets-list">
+                        <h4>Recent Packets</h4>
+                        <div id="udp-packets"></div>
+                    </div>
+                    
+                    <div class="stats-panel">
+                        <h4>📊 Statistics</h4>
+                        <div class="stat-row">
+                            <span>Sent:</span>
+                            <span id="udp-sent" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Delivered:</span>
+                            <span id="udp-delivered" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Lost:</span>
+                            <span id="udp-lost" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>No Retries:</span>
+                            <span class="stat-value">N/A</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Delivery Rate:</span>
+                            <span id="udp-rate" class="stat-value">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </div>
+
+            <!-- Explanation Panel - Now at Bottom -->
+            <div id="explanation-panel">
+                <h2>TCP vs UDP: Key Differences</h2>
+                <div class="explanation-content">
+                    <h3>When to Use Each?</h3>
+                    
+                    <h4>Use TCP When:</h4>
+                    <ul>
+                        <li><strong>Data integrity is critical</strong> (file transfers, emails, web pages)</li>
+                        <li><strong>Order matters</strong> (database transactions, APIs)</li>
+                        <li><strong>You need guaranteed delivery</strong> (banking, e-commerce)</li>
+                        <li>Examples: HTTP/HTTPS, FTP, SMTP, SSH</li>
+                    </ul>
+
+                    <h4>Use UDP When:</h4>
+                    <ul>
+                        <li><strong>Speed is more important than reliability</strong> (streaming, gaming)</li>
+                        <li><strong>Small data bursts</strong> (DNS queries)</li>
+                        <li><strong>Real-time communication</strong> (VoIP, video conferencing)</li>
+                        <li><strong>Multicast/broadcast needed</strong> (network discovery)</li>
+                        <li>Examples: DNS, VoIP, Video Streaming, Online Gaming</li>
+                    </ul>
+
+                    <h3>Feature Comparison</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Feature</th>
+                                <th>TCP</th>
+                                <th>UDP</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Connection</td>
+                                <td>✅ Connection-oriented (3-way handshake)</td>
+                                <td>❌ Connectionless</td>
+                            </tr>
+                            <tr>
+                                <td>Reliability</td>
+                                <td>✅ Guaranteed delivery with ACKs</td>
+                                <td>❌ No guarantees</td>
+                            </tr>
+                            <tr>
+                                <td>Ordering</td>
+                                <td>✅ Packets arrive in order</td>
+                                <td>❌ May arrive out of order</td>
+                            </tr>
+                            <tr>
+                                <td>Error Checking</td>
+                                <td>✅ Extensive error checking & correction</td>
+                                <td>⚠️ Basic checksum only</td>
+                            </tr>
+                            <tr>
+                                <td>Speed</td>
+                                <td>⚠️ Slower (overhead from reliability)</td>
+                                <td>✅ Faster (minimal overhead)</td>
+                            </tr>
+                            <tr>
+                                <td>Retransmission</td>
+                                <td>✅ Automatic retries on packet loss</td>
+                                <td>❌ No retries</td>
+                            </tr>
+                            <tr>
+                                <td>Flow Control</td>
+                                <td>✅ Yes (prevents overwhelming receiver)</td>
+                                <td>❌ No</td>
+                            </tr>
+                            <tr>
+                                <td>Congestion Control</td>
+                                <td>✅ Yes (adjusts to network conditions)</td>
+                                <td>❌ No</td>
+                            </tr>
+                            <tr>
+                                <td>Header Size</td>
+                                <td>20-60 bytes (larger)</td>
+                                <td>8 bytes (smaller)</td>
+                            </tr>
+                            <tr>
+                                <td>Broadcasting</td>
+                                <td>❌ Not supported</td>
+                                <td>✅ Supported</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h3>Real-World Examples</h3>
+                    <div class="example-box">
+                        <h4>TCP: Web Browsing (HTTP/HTTPS)</h4>
+                        <p>When you load a website, every image, CSS file, and script must arrive completely and in order. TCP ensures nothing is missing.</p>
+                    </div>
+
+                    <div class="example-box">
+                        <h4>UDP: Video Call (Zoom, Teams)</h4>
+                        <p>In a video call, if a few frames drop, it's better to continue than wait for retransmission. UDP prioritizes speed over perfection.</p>
+                    </div>
+
+                    <div class="example-box">
+                        <h4>TCP: File Download</h4>
+                        <p>Downloading a file requires every byte to arrive correctly. TCP's reliability ensures the file isn't corrupted.</p>
+                    </div>
+
+                    <div class="example-box">
+                        <h4>UDP: Online Gaming</h4>
+                        <p>In fast-paced games, player positions update constantly. Old position data is useless, so UDP's speed is preferred.</p>
+                    </div>
+
+                    <h3>Try It:</h3>
+                    <ol>
+                        <li>Send TCP packets → See how they're acknowledged and retried if lost</li>
+                        <li>Send UDP packets → Notice some may be lost with no retry</li>
+                        <li>Adjust packet loss rate → See how TCP maintains reliability</li>
+                        <li>Compare delivery rates → TCP stays near 100%, UDP varies</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="../../session.js"></script>
+    <script src="../../theme.js"></script>
+    <script src="app.js" defer></script>
+</body>
+</html>
+

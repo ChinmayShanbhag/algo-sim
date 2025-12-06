@@ -8,8 +8,10 @@ import (
 	"sds/internal/simulation/cache"
 	"sds/internal/simulation/cdc"
 	"sds/internal/simulation/mapreduce"
+	"sds/internal/simulation/pagination"
 	"sds/internal/simulation/raft"
 	"sds/internal/simulation/rate_limiting"
+	"sds/internal/simulation/tcpudp"
 	"sds/internal/simulation/three_phase_commit"
 	"sds/internal/simulation/two_phase_commit"
 )
@@ -51,6 +53,12 @@ type State struct {
 	// Bloom Filter simulation
 	BloomFilter *bloomfilter.BloomFilter
 
+	// TCP/UDP simulation
+	TCPUDPSimulator *tcpudp.Simulator
+
+	// Pagination simulation
+	PaginationSimulator *pagination.Simulator
+
 	// Metadata
 	LastAccessed time.Time
 	CreatedAt    time.Time
@@ -88,13 +96,13 @@ func (m *Manager) GetOrCreate(sessionID string) *State {
 		// Initialize Raft cluster with 5 nodes
 		RaftCluster: raft.NewCluster(5),
 
-		// Initialize 2PC with 3 participants
-		TwoPCCoordinator:  two_phase_commit.NewCoordinator(3),
-		TwoPCParticipants: make([]*two_phase_commit.Participant, 3),
+		// Initialize 2PC with 4 participants (original configuration)
+		TwoPCCoordinator:  two_phase_commit.NewCoordinator(4),
+		TwoPCParticipants: make([]*two_phase_commit.Participant, 4),
 
-		// Initialize 3PC with 3 participants
-		ThreePCCoordinator:  three_phase_commit.NewCoordinator(3),
-		ThreePCParticipants: make([]*three_phase_commit.Participant, 3),
+		// Initialize 3PC with 4 participants (original configuration)
+		ThreePCCoordinator:  three_phase_commit.NewCoordinator(4),
+		ThreePCParticipants: make([]*three_phase_commit.Participant, 4),
 
 		// Initialize all rate limiting algorithms (10 requests per 60 seconds)
 		FixedWindow:   rate_limiting.NewFixedWindowCounter(10, 60*time.Second),
@@ -127,18 +135,24 @@ func (m *Manager) GetOrCreate(sessionID string) *State {
 		// Initialize Bloom Filter (size: 32 bits, 3 hash functions)
 		BloomFilter: bloomfilter.NewBloomFilter(32, 3),
 
+		// Initialize TCP/UDP simulator
+		TCPUDPSimulator: tcpudp.NewSimulator(),
+
+		// Initialize Pagination simulator
+		PaginationSimulator: pagination.NewSimulator(),
+
 		// Set timestamps
 		LastAccessed: now,
 		CreatedAt:    now,
 	}
 
 	// Initialize 2PC participants
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 4; i++ {
 		m.sessions[sessionID].TwoPCParticipants[i] = two_phase_commit.NewParticipant(i + 1)
 	}
 
 	// Initialize 3PC participants
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 4; i++ {
 		m.sessions[sessionID].ThreePCParticipants[i] = three_phase_commit.NewParticipant(i + 1)
 	}
 
