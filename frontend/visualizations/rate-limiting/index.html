@@ -232,6 +232,280 @@
                     <li>Click "Send 10 Requests" - see burst behavior differences</li>
                     <li>Wait 60 seconds and try again - observe reset/refill behavior</li>
                 </ol>
+
+                <h3>🔧 Real-World Rate Limiting Implementations</h3>
+                <div class="backend-section">
+                    <h4>How Production Systems Implement Rate Limiting</h4>
+                    <p>Real-world implementations using Redis, Nginx, and distributed systems:</p>
+                    
+                    <div class="algorithm-impl">
+                        <h5>1️⃣ Fixed Window Counter (Redis - GitHub/Stripe)</h5>
+                        <pre><code>// Redis Implementation (most common for APIs)
+FUNCTION AllowRequest(userID, limit=10, windowSize=60):
+    now = getCurrentTime()
+    windowStart = FLOOR(now / windowSize) * windowSize
+    
+    // Redis key includes user and time window
+    key = "rate_limit:" + userID + ":" + windowStart
+    
+    // INCR is atomic - safe for distributed systems!
+    count = REDIS.INCR(key)
+    
+    // Set TTL on first request (auto-cleanup)
+    IF count == 1 THEN
+        REDIS.EXPIRE(key, windowSize)
+    END IF
+    
+    allowed = (count <= limit)
+    RETURN {
+        allowed: allowed,
+        remaining: MAX(0, limit - count),
+        resetAt: windowStart + windowSize
+    }
+END FUNCTION
+
+Time Complexity: O(1) - single Redis operation
+Space: O(users × windows) - but auto-expires!
+
+REDIS EXAMPLE:
+    > INCR rate_limit:user123:1702891200
+    (integer) 1
+    > EXPIRE rate_limit:user123:1702891200 60
+    OK
+    > GET rate_limit:user123:1702891200
+    "1"
+
+KEY INSIGHTS:
+    ✅ Distributed: Multiple servers share Redis
+    ✅ Atomic: INCR prevents race conditions
+    ✅ Memory: Auto-expires old windows
+    ⚠️ Burst: 20 req at X:59 + 10 at Y:00 = 30 total</code></pre>
+                        <p><strong>Used by:</strong> GitHub API (5000 req/hr), Stripe API, Shopify, Twitter API</p>
+                    </div>
+
+                    <div class="algorithm-impl">
+                        <h5>2️⃣ Sliding Log (Redis Sorted Set - Cloudflare)</h5>
+                        <pre><code>// Redis Sorted Sets for precise rate limiting
+FUNCTION AllowRequest(userID, limit=10, windowSize=60):
+    now = getCurrentTime()
+    cutoff = now - windowSize
+    key = "rate_limit:log:" + userID
+    
+    // Step 1: Remove old entries (outside window)
+    REDIS.ZREMRANGEBYSCORE(key, 0, cutoff)
+    
+    // Step 2: Count requests in window
+    count = REDIS.ZCARD(key)
+    
+    IF count < limit THEN
+        // Step 3: Add current request with timestamp as score
+        REDIS.ZADD(key, now, generateUUID())
+        REDIS.EXPIRE(key, windowSize)  // Auto-cleanup
+        RETURN {allowed: true, remaining: limit - count - 1}
+    ELSE
+        RETURN {allowed: false, remaining: 0}
+    END IF
+END FUNCTION
+
+Time Complexity: O(log N) for ZADD, O(log N + M) for ZREMRANGEBYSCORE
+Space: O(limit × users) - stores all request timestamps
+
+REDIS EXAMPLE:
+    > ZREMRANGEBYSCORE rate_limit:log:user123 0 1702891140
+    (integer) 3
+    > ZCARD rate_limit:log:user123
+    (integer) 7
+    > ZADD rate_limit:log:user123 1702891200 "req-uuid-123"
+    (integer) 1
+
+KEY INSIGHTS:
+    ✅ Perfect accuracy - no bursts at boundaries
+    ✅ Distributed across Redis cluster
+    ⚠️ Memory: Stores every request ID
+    ⚠️ Cleanup: Must remove old entries on each check</code></pre>
+                        <p><strong>Used by:</strong> Cloudflare (DDoS protection), Financial APIs (strict compliance)</p>
+                    </div>
+
+                    <div class="algorithm-impl">
+                        <h5>3️⃣ Sliding Window Counter</h5>
+                        <pre><code>ALGORITHM SlidingWindowCounter:
+    STATE:
+        limit = 10
+        windowSize = 60 seconds
+        currentCount = 0      // Requests in current window
+        previousCount = 0     // Requests in previous window
+        currentStart = <current_time>
+    
+    FUNCTION AllowRequest():
+        now = getCurrentTime()
+        elapsed = now - currentStart
+        
+        // Slide window forward if needed
+        IF elapsed >= windowSize THEN
+            previousCount = currentCount
+            currentCount = 0
+            currentStart = now
+        END IF
+        
+        // Calculate weighted estimate
+        previousWeight = 1.0 - (elapsed / windowSize)
+        estimatedCount = (previousCount * previousWeight) + currentCount
+        
+        IF estimatedCount < limit THEN
+            currentCount = currentCount + 1
+            RETURN true
+        END IF
+        
+        RETURN false
+    END FUNCTION
+    
+Time Complexity: O(1)
+Space Complexity: O(1)</code></pre>
+                        <p><strong>Key Point:</strong> Hybrid approach. Uses two counters and weighted calculation. Smooth approximation with O(1) memory.</p>
+                    </div>
+
+                    <div class="algorithm-impl">
+                        <h5>4️⃣ Token Bucket</h5>
+                        <pre><code>ALGORITHM TokenBucket:
+    STATE:
+        capacity = 10          // Max tokens
+        tokens = 10.0          // Current tokens
+        refillRate = 0.167     // Tokens per second (10/60)
+        lastRefill = <current_time>
+    
+    FUNCTION AllowRequest():
+        now = getCurrentTime()
+        elapsed = (now - lastRefill) in seconds
+        
+        // Refill tokens based on time passed
+        tokensToAdd = elapsed * refillRate
+        tokens = MIN(tokens + tokensToAdd, capacity)
+        lastRefill = now
+        
+        // Consume one token if available
+        IF tokens >= 1.0 THEN
+            tokens = tokens - 1.0
+            RETURN true
+        END IF
+        
+        RETURN false
+    END FUNCTION
+    
+    // Background process (runs every second)
+    FUNCTION RefillTokens():
+        WHILE true DO
+            SLEEP(1 second)
+            elapsed = 1.0
+            tokensToAdd = elapsed * refillRate
+            tokens = MIN(tokens + tokensToAdd, capacity)
+        END WHILE
+    END FUNCTION
+    
+Time Complexity: O(1)
+Space Complexity: O(1)</code></pre>
+                        <p><strong>Key Point:</strong> Tokens refill continuously. Allows bursts (use accumulated tokens) but rate-limited over time. O(1) with background refill.</p>
+                    </div>
+
+                    <div class="algorithm-impl">
+                        <h5>5️⃣ Leaky Bucket</h5>
+                        <pre><code>ALGORITHM LeakyBucket:
+    STATE:
+        capacity = 10          // Max queue size
+        leakRate = 0.167       // Process rate per second
+        queue = []             // Request queue
+        lastLeak = <current_time>
+    
+    FUNCTION AllowRequest():
+        now = getCurrentTime()
+        elapsed = (now - lastLeak) in seconds
+        
+        // "Leak" (process) requests at constant rate
+        requestsToLeak = FLOOR(elapsed * leakRate)
+        
+        IF requestsToLeak > 0 THEN
+            IF requestsToLeak >= length(queue) THEN
+                queue = []  // Empty the queue
+            ELSE
+                queue = queue[requestsToLeak:]  // Remove first N items
+            END IF
+            lastLeak = now
+        END IF
+        
+        // Add request to queue if space available
+        IF length(queue) < capacity THEN
+            queue.append(now)
+            RETURN true
+        END IF
+        
+        RETURN false  // Queue is full
+    END FUNCTION
+    
+    // Background process (runs every second)
+    FUNCTION ProcessQueue():
+        WHILE true DO
+            SLEEP(1 second)
+            requestsToLeak = FLOOR(leakRate)
+            IF length(queue) > 0 THEN
+                queue = queue[requestsToLeak:]
+            END IF
+        END WHILE
+    END FUNCTION
+    
+Time Complexity: O(1) for add, O(n) for cleanup
+Space Complexity: O(n) where n = queue size</code></pre>
+                        <p><strong>Key Point:</strong> Requests fill a queue that "leaks" at constant rate. Smooths bursts into steady output. FIFO queue with O(n) memory.</p>
+                    </div>
+
+                    <h4>🎯 Key Takeaways</h4>
+                    <table class="comparison-table">
+                        <thead>
+                            <tr>
+                                <th>Algorithm</th>
+                                <th>Memory</th>
+                                <th>Accuracy</th>
+                                <th>Burst Handling</th>
+                                <th>Use Case</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Fixed Window</td>
+                                <td>O(1)</td>
+                                <td>Low</td>
+                                <td>Poor (edge bursts)</td>
+                                <td>Simple APIs, low traffic</td>
+                            </tr>
+                            <tr>
+                                <td>Sliding Log</td>
+                                <td>O(n)</td>
+                                <td>Perfect</td>
+                                <td>Excellent</td>
+                                <td>Critical systems, compliance</td>
+                            </tr>
+                            <tr>
+                                <td>Sliding Window</td>
+                                <td>O(1)</td>
+                                <td>High</td>
+                                <td>Good</td>
+                                <td>Production (best balance)</td>
+                            </tr>
+                            <tr>
+                                <td>Token Bucket</td>
+                                <td>O(1)</td>
+                                <td>High</td>
+                                <td>Allows bursts</td>
+                                <td>APIs with traffic spikes</td>
+                            </tr>
+                            <tr>
+                                <td>Leaky Bucket</td>
+                                <td>O(n)</td>
+                                <td>High</td>
+                                <td>Smooths bursts</td>
+                                <td>Network routers, QoS</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

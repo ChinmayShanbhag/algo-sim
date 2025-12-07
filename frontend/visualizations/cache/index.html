@@ -171,6 +171,232 @@
                         <li>Access item A multiple times, then add item G</li>
                         <li>Notice how each policy makes different eviction decisions!</li>
                     </ol>
+
+                    <h3>🔧 Backend Simulation Architecture</h3>
+                    <div class="backend-section">
+                        <h4>How We Simulate Cache Eviction Policies</h4>
+                        
+                        <div class="algorithm-impl">
+                            <h5>1️⃣ LRU (Least Recently Used)</h5>
+                            <pre><code>STRUCTURE LRUCache:
+    capacity: Integer = 5
+    cache: Map<Key, Node>      // Fast O(1) lookup
+    head: Node                  // Most recently used
+    tail: Node                  // Least recently used
+
+STRUCTURE Node:
+    key: Any
+    value: Any
+    prev: Node
+    next: Node
+
+FUNCTION Access(key, value):
+    IF key exists IN cache THEN
+        // Move to front (most recent)
+        node = cache[key]
+        removeFromList(node)
+        addToFront(node)
+        node.value = value
+        RETURN "HIT"
+    ELSE
+        // Cache miss - need to add
+        IF cache.size >= capacity THEN
+            // Evict least recently used (tail)
+            evictedKey = tail.key
+            removeFromList(tail)
+            cache.remove(evictedKey)
+        END IF
+        
+        // Add new node to front
+        newNode = NEW Node(key, value)
+        addToFront(newNode)
+        cache[key] = newNode
+        RETURN "MISS"
+    END IF
+END FUNCTION
+
+FUNCTION addToFront(node):
+    node.next = head.next
+    node.prev = head
+    head.next.prev = node
+    head.next = node
+END FUNCTION
+
+FUNCTION removeFromList(node):
+    node.prev.next = node.next
+    node.next.prev = node.prev
+END FUNCTION
+
+Time Complexity: O(1) for access and eviction
+Space Complexity: O(n) where n = capacity
+
+KEY INSIGHT: Doubly-linked list maintains recency order
+    Most recent ← → ← → ← → Least recent
+    (head)                    (tail)</code></pre>
+                        </div>
+
+                        <div class="algorithm-impl">
+                            <h5>2️⃣ LFU (Least Frequently Used)</h5>
+                            <pre><code>STRUCTURE LFUCache:
+    capacity: Integer = 5
+    cache: Map<Key, Item>           // Key to cache item
+    frequencyMap: Map<Freq, List<Key>>  // Frequency to keys
+    minFrequency: Integer = 1       // Track minimum frequency
+
+STRUCTURE Item:
+    key: Any
+    value: Any
+    frequency: Integer
+    timestamp: DateTime  // For LRU tie-breaking
+
+FUNCTION Access(key, value):
+    IF key exists IN cache THEN
+        // Update existing item
+        item = cache[key]
+        oldFreq = item.frequency
+        
+        // Remove from old frequency list
+        frequencyMap[oldFreq].remove(key)
+        IF frequencyMap[oldFreq] is empty THEN
+            frequencyMap.remove(oldFreq)
+            IF oldFreq == minFrequency THEN
+                minFrequency = minFrequency + 1
+            END IF
+        END IF
+        
+        // Increment frequency and add to new list
+        item.frequency = oldFreq + 1
+        item.timestamp = getCurrentTime()
+        item.value = value
+        frequencyMap[item.frequency].append(key)
+        
+        RETURN "HIT"
+    ELSE
+        // Cache miss
+        IF cache.size >= capacity THEN
+            // Evict least frequently used
+            leastFreqKeys = frequencyMap[minFrequency]
+            
+            // LRU tie-breaker: evict oldest among same frequency
+            oldestKey = findOldest(leastFreqKeys)
+            cache.remove(oldestKey)
+            frequencyMap[minFrequency].remove(oldestKey)
+        END IF
+        
+        // Add new item with frequency = 1
+        newItem = {
+            key: key,
+            value: value,
+            frequency: 1,
+            timestamp: getCurrentTime()
+        }
+        cache[key] = newItem
+        frequencyMap[1].append(key)
+        minFrequency = 1
+        
+        RETURN "MISS"
+    END IF
+END FUNCTION
+
+FUNCTION findOldest(keys):
+    oldestKey = null
+    oldestTime = INFINITY
+    FOR EACH key IN keys:
+        IF cache[key].timestamp < oldestTime THEN
+            oldestTime = cache[key].timestamp
+            oldestKey = key
+        END IF
+    END FOR
+    RETURN oldestKey
+END FUNCTION
+
+Time Complexity: O(1) average (O(k) for tie-breaking where k = items with min freq)
+Space Complexity: O(n)
+
+KEY INSIGHT: Tracks how often items are accessed
+    Frequently used items stay longer, even if not recently used</code></pre>
+                        </div>
+
+                        <div class="algorithm-impl">
+                            <h5>3️⃣ FIFO (First In, First Out)</h5>
+                            <pre><code>STRUCTURE FIFOCache:
+    capacity: Integer = 5
+    cache: Map<Key, Value>
+    queue: Queue<Key>  // Maintains insertion order
+
+FUNCTION Access(key, value):
+    IF key exists IN cache THEN
+        // Update value (don't change queue position!)
+        cache[key] = value
+        RETURN "HIT"
+    ELSE
+        // Cache miss
+        IF cache.size >= capacity THEN
+            // Evict first item added (front of queue)
+            oldestKey = queue.dequeue()
+            cache.remove(oldestKey)
+        END IF
+        
+        // Add new item to back of queue
+        cache[key] = value
+        queue.enqueue(key)
+        
+        RETURN "MISS"
+    END IF
+END FUNCTION
+
+Time Complexity: O(1) for access and eviction
+Space Complexity: O(n)
+
+KEY INSIGHT: Simplest policy - evicts based on age, not usage
+    First added ← ← ← ← Last added
+    (evict)              (keep)</code></pre>
+                        </div>
+
+                        <h4>🎯 Comparison Table</h4>
+                        <table class="comparison-table">
+                            <thead>
+                                <tr>
+                                    <th>Policy</th>
+                                    <th>Data Structure</th>
+                                    <th>Time Complexity</th>
+                                    <th>Best For</th>
+                                    <th>Worst For</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>LRU</strong></td>
+                                    <td>HashMap + Doubly-Linked List</td>
+                                    <td>O(1)</td>
+                                    <td>Temporal locality (recent items reused)</td>
+                                    <td>Scanning patterns (one-time access)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>LFU</strong></td>
+                                    <td>HashMap + Frequency Map</td>
+                                    <td>O(1) avg</td>
+                                    <td>Repeated access patterns</td>
+                                    <td>Changing workloads</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>FIFO</strong></td>
+                                    <td>HashMap + Queue</td>
+                                    <td>O(1)</td>
+                                    <td>Simple, predictable eviction</td>
+                                    <td>No consideration of usage patterns</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4>📊 Real-World Usage</h4>
+                        <ul>
+                            <li><strong>LRU:</strong> Most common! Used in CPU caches, page replacement, browser caches, Redis (default), CDN edge caches</li>
+                            <li><strong>LFU:</strong> Spotify (popular songs), DNS resolvers, rate limiting counters</li>
+                            <li><strong>FIFO:</strong> Message queues, simple buffers, hardware FIFOs</li>
+                        </ul>
+
+                    </div>
                 </div>
             </div>
         </div>

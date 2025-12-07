@@ -149,8 +149,8 @@ h1 {
 
 /* Main Content */
 .main-content {
-    display: grid;
-    grid-template-columns: 1fr 400px;
+    display: flex;
+    flex-direction: column;
     gap: 24px;
 }
 
@@ -158,6 +158,14 @@ h1 {
     display: flex;
     flex-direction: column;
     gap: 20px;
+}
+
+#explanation-panel {
+    width: 100%;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .section-card {
@@ -428,8 +436,8 @@ h1 {
     border-radius: 12px;
     padding: 24px;
     box-shadow: var(--shadow-md);
-    overflow-y: auto;
-    max-height: calc(100vh - 200px);
+    overflow-y: visible;
+    max-height: none;
 }
 
 #explanation-panel h2 {
@@ -449,6 +457,92 @@ h1 {
 
 .explanation-content ul, .explanation-content ol {
     margin-left: 20px;
+}
+
+/* Backend Section Styles */
+.backend-section {
+    background: var(--bg-tertiary);
+    border: 2px solid var(--accent-blue);
+    border-radius: 12px;
+    padding: 24px;
+    margin-top: 30px;
+}
+
+.backend-section h4 {
+    color: var(--accent-blue);
+    margin-top: 20px;
+    margin-bottom: 15px;
+    font-size: 1.3rem;
+}
+
+.algorithm-impl {
+    background: var(--bg-primary);
+    border-left: 4px solid var(--accent-green);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.algorithm-impl h5 {
+    color: var(--accent-green);
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 1.1rem;
+}
+
+.algorithm-impl pre {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    padding: 16px;
+    overflow-x: auto;
+    margin: 12px 0;
+}
+
+.algorithm-impl code {
+    font-family: 'Courier New', 'Consolas', monospace;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: inherit;
+}
+
+.algorithm-impl p {
+    margin: 12px 0;
+}
+
+/* Comparison table styling */
+.backend-section .comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.backend-section .comparison-table thead {
+    background: var(--accent-blue);
+}
+
+.backend-section .comparison-table th {
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    color: white;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.backend-section .comparison-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.backend-section .comparison-table tr:last-child td {
+    border-bottom: none;
+}
+
+.backend-section .comparison-table tbody tr:hover {
+    background: var(--bg-tertiary);
 }
 
 @media (max-width: 1400px) {

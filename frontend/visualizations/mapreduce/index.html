@@ -79,9 +79,11 @@
                     <div id="final-output" class="data-container"></div>
                 </div>
             </div>
+        </div>
 
-            <div id="explanation-panel">
-                <h2>Understanding MapReduce</h2>
+        <!-- Explanation Panel (Moved to bottom for better readability) -->
+        <div id="explanation-panel">
+            <h2>Understanding MapReduce</h2>
                 <div class="explanation-content">
                     <h3>What is MapReduce? 🌍</h3>
                     <p>MapReduce is a programming model for processing large datasets in parallel across distributed clusters. It divides work into independent tasks that can run simultaneously on multiple machines.</p>
@@ -143,6 +145,198 @@
                         <li>Click "Execute Shuffle Phase" to see data partitioning</li>
                         <li>Click "Execute Reduce Phase" to see final aggregation</li>
                     </ol>
+
+                    <h3>🔧 Backend Simulation Architecture</h3>
+                    <div class="backend-section">
+                        <h4>MapReduce Data Flow</h4>
+                        
+                        <div class="architecture-diagram">
+                            <pre><code>┌─────────────────────────────────────────────────────────────┐
+│                    MAPREDUCE ARCHITECTURE                     │
+└─────────────────────────────────────────────────────────────┘
+
+INPUT DATA: "the quick brown fox the lazy dog"
+
+┌──────────────────────────────────────────────────────────────┐
+│ MAP PHASE (Parallel Processing on 2 Machines)                │
+└──────────────────────────────────────────────────────────────┘
+    Machine 1: "the quick brown fox"
+        map("the quick brown fox")
+        → [("the",1), ("quick",1), ("brown",1), ("fox",1)]
+    
+    Machine 2: "the lazy dog"
+        map("the lazy dog")
+        → [("the",1), ("lazy",1), ("dog",1)]
+
+┌──────────────────────────────────────────────────────────────┐
+│ SHUFFLE PHASE (Group by Key → Partition → Sort)              │
+└──────────────────────────────────────────────────────────────┘
+    Partition 0 (hash("quick") % 2 = 0):
+        "quick" → [1]
+    
+    Partition 1 (hash("the") % 2 = 1):
+        "the" → [1, 1]
+        "brown" → [1]
+        "fox" → [1]
+        "lazy" → [1]
+        "dog" → [1]
+
+┌──────────────────────────────────────────────────────────────┐
+│ REDUCE PHASE (Parallel Aggregation on 2 Machines)            │
+└──────────────────────────────────────────────────────────────┘
+    Reducer 0:
+        reduce("quick", [1]) → ("quick", 1)
+    
+    Reducer 1:
+        reduce("the", [1,1]) → ("the", 2)
+        reduce("brown", [1]) → ("brown", 1)
+        reduce("fox", [1]) → ("fox", 1)
+        reduce("lazy", [1]) → ("lazy", 1)
+        reduce("dog", [1]) → ("dog", 1)
+
+FINAL OUTPUT: {"the":2, "quick":1, "brown":1, "fox":1, "lazy":1, "dog":1}</code></pre>
+                        </div>
+
+                        <div class="algorithm-impl">
+                            <h5>1️⃣ Map Phase</h5>
+                            <pre><code>FUNCTION Map(text):
+    // Split text into words
+    words = text.split(" ")
+    pairs = []
+    
+    // Emit (word, 1) for each word
+    FOR EACH word IN words:
+        pairs.append((word, 1))
+    END FOR
+    
+    RETURN pairs
+END FUNCTION
+
+EXAMPLE:
+    Input: "the quick brown"
+    Output: [("the", 1), ("quick", 1), ("brown", 1)]
+
+KEY INSIGHT: Maps run IN PARALLEL on different machines
+    - Each mapper processes a chunk of input
+    - No communication between mappers needed
+    - Linear scalability: 2x machines → 2x throughput</code></pre>
+                        </div>
+
+                        <div class="algorithm-impl">
+                            <h5>2️⃣ Shuffle Phase (Partition → Sort → Copy)</h5>
+                            <pre><code>FUNCTION Shuffle(allMapOutputs, numReducers):
+    partitions = createArray(numReducers)
+    
+    // STEP 1: Partition by key hash
+    FOR EACH (key, value) IN allMapOutputs:
+        partitionID = hash(key) MOD numReducers
+        partitions[partitionID].append((key, value))
+    END FOR
+    
+    // STEP 2: Sort each partition by key
+    FOR EACH partition IN partitions:
+        partition.sort(byKey)
+    END FOR
+    
+    // STEP 3: Group values by key
+    groupedPartitions = []
+    FOR EACH partition IN partitions:
+        grouped = groupByKey(partition)
+        groupedPartitions.append(grouped)
+    END FOR
+    
+    RETURN groupedPartitions
+END FUNCTION
+
+FUNCTION groupByKey(sortedPairs):
+    grouped = Map()
+    FOR EACH (key, value) IN sortedPairs:
+        IF key NOT IN grouped THEN
+            grouped[key] = []
+        END IF
+        grouped[key].append(value)
+    END FOR
+    RETURN grouped
+END FUNCTION
+
+EXAMPLE:
+    Input: [("the",1), ("fox",1), ("the",1), ("dog",1)]
+    After Partition (2 reducers):
+        Partition 0: [("fox",1), ("dog",1)]
+        Partition 1: [("the",1), ("the",1)]
+    After Sort & Group:
+        Partition 0: {fox: [1], dog: [1]}
+        Partition 1: {the: [1, 1]}
+
+KEY INSIGHT: Shuffle is the MOST EXPENSIVE phase
+    - Network transfer between mappers and reducers
+    - All-to-all communication pattern
+    - Sorting for grouping efficiency</code></pre>
+                        </div>
+
+                        <div class="algorithm-impl">
+                            <h5>3️⃣ Reduce Phase</h5>
+                            <pre><code>FUNCTION Reduce(key, values):
+    // Aggregate all values for this key
+    sum = 0
+    FOR EACH value IN values:
+        sum = sum + value
+    END FOR
+    
+    RETURN (key, sum)
+END FUNCTION
+
+EXAMPLE:
+    Input: ("the", [1, 1])
+    Output: ("the", 2)
+
+KEY INSIGHT: Reducers run IN PARALLEL on different machines
+    - Each reducer processes a subset of keys
+    - No communication between reducers needed
+    - Output is final result for that partition</code></pre>
+                        </div>
+
+                        <h4>🎯 Why MapReduce?</h4>
+                        <table class="comparison-table">
+                            <thead>
+                                <tr>
+                                    <th>Challenge</th>
+                                    <th>Traditional Approach</th>
+                                    <th>MapReduce Solution</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Process 1TB of data</td>
+                                    <td>Single machine → 10+ hours</td>
+                                    <td>1000 machines → 1 minute!</td>
+                                </tr>
+                                <tr>
+                                    <td>Machine failures</td>
+                                    <td>Start over from scratch</td>
+                                    <td>Automatic retry of failed tasks</td>
+                                </tr>
+                                <tr>
+                                    <td>Data distribution</td>
+                                    <td>Manual partitioning & copying</td>
+                                    <td>Automatic shuffle & sort</td>
+                                </tr>
+                                <tr>
+                                    <td>Code complexity</td>
+                                    <td>Handle parallelism, networking, failures</td>
+                                    <td>Write simple map() and reduce() functions</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4>📊 Real-World Performance</h4>
+                        <p><strong>Google's original MapReduce (2004):</strong></p>
+                        <ul>
+                            <li>Sort 10 billion 100-byte records (1TB) on 1800 machines in <strong>6 minutes</strong></li>
+                            <li>Grep 10TB of data on 1800 machines in <strong>2.5 minutes</strong></li>
+                        </ul>
+
+                    </div>
                 </div>
             </div>
         </div>

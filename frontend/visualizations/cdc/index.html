@@ -216,6 +216,328 @@
                         <li>Try UPDATE and DELETE operations</li>
                         <li>Watch how changes flow through the pipeline!</li>
                     </ol>
+
+                    <h3>🔧 Backend Simulation Architecture</h3>
+                    <div class="backend-section">
+                        <h4>System Components & Data Flow</h4>
+                        
+                        <div class="architecture-diagram">
+                            <pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                          CDC SYSTEM ARCHITECTURE                      │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────┐         ┌──────────────────┐         ┌─────────────┐
+│  PRIMARY         │         │   REPLICATION    │         │   KAFKA     │
+│  DATABASE        │────────>│   LOG            │────────>│   BROKER    │
+│                  │  Write  │   (WAL/Binlog)   │  Read   │   (Topic)   │
+│ - Users Table    │         │                  │         │             │
+│ - Orders Table   │         │  LSN: 1001       │         │  Partitions │
+│ - Products Table │         │  LSN: 1002       │         │  - user-db  │
+└──────────────────┘         │  LSN: 1003 ...   │         │  - orders   │
+                             └──────────────────┘         └─────────────┘
+                                                                  │
+                        ┌────────────────────────────────────────┴────┐
+                        │                                              │
+                        v                                              v
+            ┌─────────────────────┐                       ┌──────────────────────┐
+            │   SEARCH INDEX      │                       │   CACHE (Redis)      │
+            │   (Elasticsearch)   │                       │                      │
+            │                     │                       │  - User:123 → {...}  │
+            │  - Full text search │                       │  - Order:456 → {...} │
+            │  - Fast queries     │                       │                      │
+            └─────────────────────┘                       └──────────────────────┘</code></pre>
+                        </div>
+
+                        <div class="algorithm-impl">
+                            <h5>1️⃣ Primary Database Component</h5>
+                            <pre><code>STRUCTURE PrimaryDatabase:
+    tables: Map<TableName, List<Row>>  // Stores all tables and rows
+    replicationLog: ReplicationLog     // Pointer to replication log
+    LSN: Integer = 0                   // Log Sequence Number
+
+FUNCTION ExecuteOperation(operation):
+    // STEP 1: Apply change to database
+    SWITCH operation.type:
+        CASE "INSERT":
+            tables[operation.table].append(operation.data)
+        CASE "UPDATE":
+            row = findRow(operation.table, operation.id)
+            updateRow(row, operation.data)
+        CASE "DELETE":
+            removeRow(operation.table, operation.id)
+    END SWITCH
+    
+    // STEP 2: Write to replication log (CRITICAL for CDC!)
+    LSN = LSN + 1
+    logEntry = {
+        lsn: LSN,
+        operation: operation.type,
+        table: operation.table,
+        data: operation.data,
+        timestamp: getCurrentTime()
+    }
+    replicationLog.Append(logEntry)
+    
+    // STEP 3: Notify CDC connector
+    replicationLog.NotifyConnector()
+END FUNCTION
+
+KEY POINT: Every write to database is also written to replication log
+This ensures CDC never misses any changes!</code></pre>
+                        </div>
+
+                        <div class="algorithm-impl">
+                            <h5>2️⃣ Replication Log (Write-Ahead Log)</h5>
+                            <pre><code>STRUCTURE ReplicationLog:
+    entries: List<LogEntry>    // All log entries
+    lastReadLSN: Integer = 0   // Last LSN read by CDC connector
+
+STRUCTURE LogEntry:
+    lsn: Integer
+    operation: String  // "INSERT", "UPDATE", or "DELETE"
+    table: String
+    data: Object
+    timestamp: DateTime
+
+FUNCTION Append(entry):
+    // Atomically add entry to log
+    LOCK:
+        entries.append(entry)
+    END LOCK
+END FUNCTION
+
+FUNCTION ReadNew():
+    // Return all entries since last read
+    LOCK:
+        newEntries = []
+        FOR EACH entry IN entries:
+            IF entry.lsn > lastReadLSN THEN
+                newEntries.append(entry)
+            END IF
+        END FOR
+        
+        IF newEntries is not empty THEN
+            lastReadLSN = newEntries[last].lsn
+        END IF
+        
+        RETURN newEntries
+    END LOCK
+END FUNCTION
+
+KEY POINT: Log is append-only and ordered by LSN
+CDC reads incrementally without affecting database performance</code></pre>
+                        </div>
+
+                        <div class="algorithm-impl">
+                            <h5>3️⃣ CDC Connector (Continuous Polling)</h5>
+                            <pre><code>STRUCTURE CDCConnector:
+    replicationLog: ReplicationLog
+    kafka: KafkaBroker
+    isRunning: Boolean
+
+FUNCTION Start():
+    isRunning = true
+    
+    // Background process: Poll every 100ms
+    SPAWN BACKGROUND THREAD:
+        WHILE isRunning:
+            SLEEP(100 milliseconds)
+            
+            // Read new entries from replication log
+            newEntries = replicationLog.ReadNew()
+            
+            // Publish each entry to Kafka
+            FOR EACH entry IN newEntries:
+                changeEvent = {
+                    lsn: entry.lsn,
+                    operation: entry.operation,
+                    table: entry.table,
+                    before: null,        // Previous value (for UPDATE/DELETE)
+                    after: entry.data,   // New value
+                    timestamp: entry.timestamp
+                }
+                
+                kafka.Publish("db-changes", changeEvent)
+            END FOR
+        END WHILE
+    END THREAD
+END FUNCTION
+
+FUNCTION Stop():
+    isRunning = false
+END FUNCTION
+
+KEY POINT: Continuously reads log without blocking database
+Real-world tools (Debezium, Maxwell) read directly from DB binlog!</code></pre>
+                        </div>
+
+                        <div class="algorithm-impl">
+                            <h5>4️⃣ Kafka Broker (Message Queue)</h5>
+                            <pre><code>STRUCTURE KafkaBroker:
+    topics: Map<TopicName, List<Event>>      // Store events by topic
+    consumers: Map<TopicName, List<Consumer>> // Track subscribers
+
+FUNCTION Publish(topicName, event):
+    LOCK:
+        // Add event to topic
+        topics[topicName].append(event)
+        
+        // Notify all subscribers
+        FOR EACH consumer IN consumers[topicName]:
+            consumer.Notify(event)
+        END FOR
+    END LOCK
+END FUNCTION
+
+FUNCTION Subscribe(topicName, consumer):
+    LOCK:
+        consumers[topicName].append(consumer)
+    END LOCK
+END FUNCTION
+
+FUNCTION Unsubscribe(topicName, consumer):
+    LOCK:
+        consumers[topicName].remove(consumer)
+    END LOCK
+END FUNCTION
+
+KEY POINT: Decouples producers (CDC) from consumers (Search, Cache)
+Multiple consumers can process same event independently</code></pre>
+                        </div>
+
+                        <div class="algorithm-impl">
+                            <h5>5️⃣ Consumers (Search Index & Cache)</h5>
+                            <pre><code>// SEARCH INDEX CONSUMER
+STRUCTURE SearchIndexConsumer:
+    index: Map<TableName, List<Document>>  // Elasticsearch-like
+
+FUNCTION ProcessEvent(event):
+    SWITCH event.operation:
+        CASE "INSERT":
+            // Add document to search index
+            index[event.table].append(event.after)
+            
+        CASE "UPDATE":
+            // Find and update document
+            doc = findDocument(event.table, event.after.id)
+            updateDocument(doc, event.after)
+            
+        CASE "DELETE":
+            // Remove document from index
+            removeDocument(event.table, event.after.id)
+    END SWITCH
+END FUNCTION
+
+
+// CACHE CONSUMER
+STRUCTURE CacheConsumer:
+    cache: Map<Key, Value>  // Redis-like key-value store
+
+FUNCTION ProcessEvent(event):
+    key = event.table + ":" + event.after.id
+    
+    SWITCH event.operation:
+        CASE "INSERT", "UPDATE":
+            // Upsert in cache
+            cache[key] = event.after
+            
+        CASE "DELETE":
+            // Invalidate cache entry
+            cache.remove(key)
+    END SWITCH
+END FUNCTION
+
+KEY POINT: Each consumer processes events independently
+Failure in one consumer doesn't affect others</code></pre>
+                        </div>
+
+                        <h4>📊 Data Flow Example</h4>
+                        <div class="algorithm-impl">
+                            <pre><code>// USER INSERTS A ROW
+database.ExecuteOperation({
+    type: "INSERT",
+    table: "users",
+    data: {id: 123, name: "Alice", email: "alice@example.com"}
+})
+
+// ↓ FLOW TIMELINE:
+
+[Time: 0ms] Primary DB
+    └─> Row inserted into users table
+    └─> LSN incremented: 1000 → 1001
+
+[Time: 0ms] Replication Log
+    └─> Entry appended: {lsn: 1001, op: "INSERT", table: "users", ...}
+
+[Time: 100ms] CDC Connector (polls every 100ms)
+    └─> Reads log entries where LSN > 1000
+    └─> Finds entry 1001
+
+[Time: 100ms] Kafka Broker
+    └─> Event published to "db-changes" topic
+    └─> Notifies all subscribers
+
+[Time: 100ms] Search Index Consumer
+    └─> Receives event
+    └─> Indexes user for full-text search
+    └─> Alice can now be searched!
+
+[Time: 100ms] Cache Consumer
+    └─> Receives event
+    └─> Caches user:123 → {name: "Alice", ...}
+    └─> Cache is now up-to-date!
+
+[Time: 100ms] ✅ ALL SYSTEMS IN SYNC!
+
+RESULT:
+    ✓ Primary DB: Source of truth (persistent storage)
+    ✓ Search Index: Fast full-text queries
+    ✓ Cache: Ultra-fast key lookups
+    ✓ All updated in ~100ms with zero code changes!</code></pre>
+                        </div>
+
+                        <h4>🎯 Why CDC? (vs Alternatives)</h4>
+                        <table class="comparison-table">
+                            <thead>
+                                <tr>
+                                    <th>Approach</th>
+                                    <th>How</th>
+                                    <th>Pros</th>
+                                    <th>Cons</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Dual Writes</strong></td>
+                                    <td>Write to DB + Kafka in code</td>
+                                    <td>Simple to implement</td>
+                                    <td>❌ Can fail partially<br>❌ Not atomic<br>❌ Code changes needed</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Polling DB</strong></td>
+                                    <td>SELECT * WHERE updated_at > ?</td>
+                                    <td>Works with any DB</td>
+                                    <td>❌ Lags behind<br>❌ Misses deletes<br>❌ DB overhead</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>CDC (This!)</strong></td>
+                                    <td>Read replication log</td>
+                                    <td>✅ No code changes<br>✅ Captures all changes<br>✅ Low latency<br>✅ Guaranteed order</td>
+                                    <td>⚠️ Requires CDC tool<br>⚠️ Complex setup</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4>🌍 Real-World CDC Use Cases</h4>
+                        <ul>
+                            <li><strong>LinkedIn:</strong> Kafka was created for CDC! All DB changes flow through Kafka to derived systems</li>
+                            <li><strong>Uber:</strong> Schemaless uses CDC to replicate MySQL → Elasticsearch for fast lookups</li>
+                            <li><strong>Netflix:</strong> CDC streams DB changes to data lake for analytics and ML</li>
+                            <li><strong>Airbnb:</strong> SpinalTap (CDC tool) keeps search index in sync with MySQL</li>
+                            <li><strong>Shopify:</strong> CDC replicates product data to multiple regions and caches</li>
+                        </ul>
+
+                    </div>
                 </div>
             </div>
         </div>

@@ -109,10 +109,11 @@
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Explanation Panel -->
-            <div id="explanation-panel">
-                <h2>Understanding Bloom Filters</h2>
+        <!-- Explanation Panel (Moved to bottom for better readability) -->
+        <div id="explanation-panel">
+            <h2>Understanding Bloom Filters</h2>
                 <div class="explanation-content">
                     <h3>What is a Bloom Filter? 🌸</h3>
                     <p>A Bloom Filter is a space-efficient probabilistic data structure that tests whether an element is a member of a set. It can tell you:</p>
@@ -187,6 +188,171 @@
                         <li>CHECK items you didn't add → might get false positives!</li>
                         <li>Add more items and watch the false positive rate increase</li>
                     </ol>
+
+                    <h3>🔧 Backend Simulation Architecture</h3>
+                    <div class="backend-section">
+                        <h4>How We Simulate Bloom Filters</h4>
+                        
+                        <div class="algorithm-impl">
+                            <h5>Data Structure</h5>
+                            <pre><code>STRUCTURE BloomFilter:
+    bitArray = array[32] of boolean  // 32 bits (all initially false)
+    numHashes = 3                    // Number of hash functions
+    itemsAdded = 0                   // Track items count</code></pre>
+                        </div>
+
+                        <div class="algorithm-impl">
+                            <h5>Hash Functions (FNV-1a with Seeds)</h5>
+                            <pre><code>FUNCTION getHashPositions(item):
+    positions = []
+    
+    FOR i = 0 TO numHashes-1 DO
+        // Use hash function with different seed for each position
+        seed = concatenate(item, ":", i)
+        hashValue = FNV1a_Hash(seed)
+        
+        // Map hash to bit array position (0-31)
+        position = hashValue MOD 32
+        positions.append(position)
+    END FOR
+    
+    RETURN positions
+END FUNCTION
+
+EXAMPLE for item "apple" with 3 hash functions:
+    Hash 0: FNV("apple:0") MOD 32 = 7
+    Hash 1: FNV("apple:1") MOD 32 = 15
+    Hash 2: FNV("apple:2") MOD 32 = 23
+    → Sets bits at positions 7, 15, 23</code></pre>
+                        </div>
+
+                        <div class="algorithm-impl">
+                            <h5>Add Operation</h5>
+                            <pre><code>FUNCTION Add(item):
+    // Get all hash positions for this item
+    positions = getHashPositions(item)
+    
+    // Set all corresponding bits to true
+    FOR EACH position IN positions DO
+        bitArray[position] = true
+    END FOR
+    
+    itemsAdded = itemsAdded + 1
+END FUNCTION
+
+Time Complexity: O(k) where k = number of hash functions (k=3)
+Space Complexity: O(1) - fixed size bit array
+
+EXAMPLE: Add("apple")
+    Step 1: Calculate positions → [7, 15, 23]
+    Step 2: Set bitArray[7] = true
+    Step 3: Set bitArray[15] = true
+    Step 4: Set bitArray[23] = true</code></pre>
+                        </div>
+
+                        <div class="algorithm-impl">
+                            <h5>Check Operation</h5>
+                            <pre><code>FUNCTION Check(item):
+    // Get all hash positions for this item
+    positions = getHashPositions(item)
+    
+    // Check if ALL corresponding bits are set
+    FOR EACH position IN positions DO
+        IF bitArray[position] == false THEN
+            RETURN false  // Definitely NOT in set
+        END IF
+    END FOR
+    
+    RETURN true  // PROBABLY in set (might be false positive)
+END FUNCTION
+
+Time Complexity: O(k)
+
+KEY PROPERTIES:
+    ✅ No False Negatives: If returns false, item definitely NOT in set
+    ⚠️ False Positives Possible: If returns true, item MIGHT be in set
+
+EXAMPLE: Check("banana")
+    Step 1: Calculate positions → [2, 15, 28]
+    Step 2: Check bitArray[2] → true
+    Step 3: Check bitArray[15] → true (was set by "apple"!)
+    Step 4: Check bitArray[28] → false
+    Result: FALSE (definitely not in set)</code></pre>
+                        </div>
+
+                        <div class="algorithm-impl">
+                            <h5>False Positive Probability</h5>
+                            <pre><code>FUNCTION FalsePositiveRate():
+    // Count how many bits are set to true
+    bitsSet = 0
+    FOR i = 0 TO 31 DO
+        IF bitArray[i] == true THEN
+            bitsSet = bitsSet + 1
+        END IF
+    END FOR
+    
+    // Calculate probability
+    fillRatio = bitsSet / 32
+    fpRate = fillRatio ^ numHashes
+    
+    RETURN fpRate * 100  // Return as percentage
+END FUNCTION
+
+MATHEMATICAL FORMULA:
+    FP Rate ≈ (1 - e^(-kn/m))^k
+    where:
+        k = number of hash functions (3)
+        n = number of items inserted
+        m = number of bits in array (32)
+
+EXAMPLES with our configuration (m=32, k=3):
+    0 items  → ~0% FP rate
+    5 items  → ~8% FP rate
+    10 items → ~32% FP rate
+    15 items → ~60% FP rate
+    
+As more items are added, more bits get set to true,
+increasing the chance of false positives!</code></pre>
+                        </div>
+
+                        <h4>🎯 Why Use Bloom Filters?</h4>
+                        <table class="comparison-table">
+                            <thead>
+                                <tr>
+                                    <th>Use Case</th>
+                                    <th>Traditional Set</th>
+                                    <th>Bloom Filter</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Check if URL is malicious</strong></td>
+                                    <td>10M URLs × 50 bytes = 500 MB</td>
+                                    <td>10M URLs × 10 bits = 12.5 MB (40x smaller!)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Avoid duplicate processing</strong></td>
+                                    <td>Store full records in memory</td>
+                                    <td>Quick check with ~1-2% false positive</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Database query optimization</strong></td>
+                                    <td>Query DB for every check</td>
+                                    <td>Filter 99% with Bloom, query only possible hits</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4>📊 Real-World Applications</h4>
+                        <ul>
+                            <li><strong>Google Chrome:</strong> Checks if URL is in malicious URL database before full lookup</li>
+                            <li><strong>Cassandra/HBase:</strong> Checks if data is in SSTable before disk read</li>
+                            <li><strong>Medium:</strong> Recommends articles you haven't read (Bloom filter for "already read")</li>
+                            <li><strong>Bitcoin:</strong> Quickly filters transactions in SPV clients</li>
+                            <li><strong>Spam Filters:</strong> Quick check if email address is known spammer</li>
+                        </ul>
+
+                    </div>
                 </div>
             </div>
         </div>

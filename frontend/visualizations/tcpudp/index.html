@@ -263,6 +263,307 @@
                         <li>Adjust packet loss rate → See how TCP maintains reliability</li>
                         <li>Compare delivery rates → TCP stays near 100%, UDP varies</li>
                     </ol>
+
+                    <h3>🔧 Real-World Implementation (OS Kernel Level)</h3>
+                    <div class="backend-section">
+                        <p><strong>Note:</strong> This shows how TCP and UDP actually work in operating systems (Linux, Windows, etc.), not how we simulate them in this demo.</p>
+                        
+                        <h4>TCP: Reliable Transport Protocol</h4>
+                        
+                        <div class="algorithm-impl">
+                            <h5>TCP Connection State Machine</h5>
+                            <pre><code>STATES:
+    CLOSED       → No connection
+    LISTEN       → Server waiting for connection
+    SYN_SENT     → Client sent SYN, waiting for SYN-ACK
+    SYN_RECEIVED → Server received SYN, sent SYN-ACK
+    ESTABLISHED  → Connection active, data transfer
+    FIN_WAIT_1   → Sent FIN, waiting for ACK
+    FIN_WAIT_2   → Received ACK, waiting for FIN
+    TIME_WAIT    → Waiting for 2*MSL before full close
+    CLOSE_WAIT   → Received FIN, waiting for app to close
+    LAST_ACK     → Sent FIN, waiting for ACK
+    CLOSING      → Both sides closing simultaneously
+
+STRUCTURE TCPControlBlock:
+    localIP: IPAddress
+    localPort: Port
+    remoteIP: IPAddress
+    remotePort: Port
+    state: State
+    
+    // Sequence numbers
+    sendNext: Integer      // Next seq number to send
+    sendUnack: Integer     // Oldest unacknowledged
+    receiveNext: Integer   // Next expected seq number
+    
+    // Buffers
+    sendBuffer: CircularBuffer   // Data waiting to send
+    receiveBuffer: CircularBuffer // Out-of-order packets
+    
+    // Timers
+    retransmitTimer: Timer        // Retry lost packets
+    persistTimer: Timer           // Zero-window probing
+    keepAliveTimer: Timer         // Connection alive check
+    timeWaitTimer: Timer          // 2MSL wait
+    
+    // Congestion control
+    cwnd: Integer          // Congestion window
+    ssthresh: Integer      // Slow start threshold
+    rtt: Duration          // Round-trip time
+    rto: Duration          // Retransmission timeout</code></pre>
+                        </div>
+
+                        <div class="algorithm-impl">
+                            <h5>Real TCP Send Operation (Kernel)</h5>
+                            <pre><code>// Application calls: send(socket, data, length)
+FUNCTION TCP_Send(tcb, data):
+    // 1. Copy data to send buffer
+    sendBuffer.append(data)
+    
+    // 2. Segment data into packets (MSS = ~1460 bytes)
+    WHILE sendBuffer.hasData() AND cwnd allows sending:
+        segment = sendBuffer.read(min(MSS, cwnd - inFlight))
+        
+        // 3. Build TCP packet
+        packet = {
+            srcPort: tcb.localPort,
+            dstPort: tcb.remotePort,
+            seqNum: tcb.sendNext,
+            ackNum: tcb.receiveNext,
+            flags: ACK,  // Or PSH for urgent data
+            window: tcb.receiveWindow,
+            checksum: calculateChecksum(packet),
+            data: segment
+        }
+        
+        // 4. Send to IP layer (non-blocking!)
+        IP_Send(packet, tcb.remoteIP)
+        
+        // 5. Start retransmission timer if not already running
+        IF retransmitTimer NOT running THEN
+            retransmitTimer.start(tcb.rto)
+        END IF
+        
+        // 6. Update sequence number
+        tcb.sendNext += length(segment)
+        
+        // 7. Store in retransmission queue
+        retransmitQueue.add(packet)
+    END WHILE
+END FUNCTION
+
+KEY: No blocking! Kernel handles everything asynchronously</code></pre>
+                        </div>
+
+                        <div class="algorithm-impl">
+                            <h5>Real TCP Receive & ACK (Kernel Event-Driven)</h5>
+                            <pre><code>// Triggered when packet arrives from network
+FUNCTION TCP_Receive_Interrupt(packet):
+    tcb = findConnection(packet.srcIP, packet.srcPort)
+    
+    // 1. Validate checksum
+    IF NOT validateChecksum(packet) THEN
+        DROP packet
+        RETURN
+    END IF
+    
+    // 2. Check sequence number
+    IF packet.seqNum == tcb.receiveNext THEN
+        // In-order packet
+        receiveBuffer.append(packet.data)
+        tcb.receiveNext += length(packet.data)
+        
+        // Deliver to application
+        wakeup_process(tcb.waitingProcess)
+        
+        // Check if buffered packets are now in order
+        WHILE receiveBuffer.has(tcb.receiveNext):
+            nextPacket = receiveBuffer.get(tcb.receiveNext)
+            deliverToApp(nextPacket)
+            tcb.receiveNext += length(nextPacket)
+        END WHILE
+    ELSE IF packet.seqNum > tcb.receiveNext THEN
+        // Out-of-order packet - buffer it
+        receiveBuffer.store(packet)
+    ELSE
+        // Duplicate packet - ignore but still ACK
+    END IF
+    
+    // 3. Send ACK immediately (delayed ACK optimization)
+    send_ack(tcb, tcb.receiveNext)
+    
+    // 4. If ACK received, remove from retransmit queue
+    IF packet.flags.ACK THEN
+        remove_acknowledged(packet.ackNum)
+        retransmitTimer.stop()
+        updateRTT(packet)  // Adjust RTO based on actual RTT
+    END IF
+END FUNCTION
+
+KEY: Interrupt-driven, not polling!</code></pre>
+                        </div>
+
+                        <div class="algorithm-impl">
+                            <h5>TCP Retransmission (Timer Event)</h5>
+                            <pre><code>// Triggered when retransmission timer expires
+FUNCTION TCP_Retransmit_Timeout():
+    // 1. Get oldest unacknowledged packet
+    packet = retransmitQueue.first()
+    
+    // 2. Resend packet
+    IP_Send(packet, tcb.remoteIP)
+    
+    // 3. Double RTO (exponential backoff)
+    tcb.rto = min(tcb.rto * 2, MAX_RTO)  // Max 64 seconds
+    
+    // 4. Restart timer
+    retransmitTimer.start(tcb.rto)
+    
+    // 5. Congestion control: Enter slow start
+    tcb.ssthresh = cwnd / 2
+    tcb.cwnd = 1  // Reset to 1 MSS
+END FUNCTION
+
+KEY: TCP never gives up! Retries until connection breaks or app closes socket</code></pre>
+                        </div>
+
+                        <h4>UDP: Simple, Stateless Protocol</h4>
+                        
+                        <div class="algorithm-impl">
+                            <h5>Real UDP Send (Kernel)</h5>
+                            <pre><code>// Application calls: sendto(socket, data, dest_addr)
+FUNCTION UDP_Send(data, destIP, destPort):
+    // 1. Build UDP packet (NO connection state!)
+    packet = {
+        srcPort: socket.localPort,
+        dstPort: destPort,
+        length: length(data) + 8,  // 8-byte header
+        checksum: calculateChecksum(data),
+        data: data
+    }
+    
+    // 2. Send to IP layer immediately
+    IP_Send(packet, destIP)
+    
+    // 3. Return immediately - NO retries, NO ACKs, NO timers!
+    RETURN SUCCESS
+END FUNCTION
+
+KEY: Fire-and-forget! Kernel doesn't track anything</code></pre>
+                        </div>
+
+                        <div class="algorithm-impl">
+                            <h5>Real UDP Receive (Kernel Event-Driven)</h5>
+                            <pre><code>// Triggered when packet arrives
+FUNCTION UDP_Receive_Interrupt(packet):
+    // 1. Validate checksum (optional in IPv4!)
+    IF checksum enabled AND NOT validateChecksum(packet) THEN
+        DROP packet
+        RETURN
+    END IF
+    
+    // 2. Find socket bound to this port
+    socket = findSocket(packet.dstPort)
+    IF socket == NULL THEN
+        send_ICMP_port_unreachable()
+        RETURN
+    END IF
+    
+    // 3. Add to socket receive queue
+    socket.receiveQueue.enqueue(packet.data)
+    
+    // 4. Wake up application if waiting
+    wakeup_process(socket.waitingProcess)
+END FUNCTION
+
+KEY: No ordering, no buffering, no retry - just deliver!</code></pre>
+                        </div>
+
+                        <h4>🎯 Real-World Performance</h4>
+                        <table class="comparison-table">
+                            <thead>
+                                <tr>
+                                    <th>Metric</th>
+                                    <th>TCP</th>
+                                    <th>UDP</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Latency (first byte)</strong></td>
+                                    <td>~40ms (1 RTT for handshake + data)</td>
+                                    <td>~10ms (immediate send)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Throughput</strong></td>
+                                    <td>Varies (congestion control limits)</td>
+                                    <td>Full link speed (no limits)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>CPU overhead</strong></td>
+                                    <td>High (state management, timers, ACKs)</td>
+                                    <td>Minimal (stateless)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Memory per connection</strong></td>
+                                    <td>~4KB (TCB + buffers)</td>
+                                    <td>~100 bytes (just socket)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4>📊 Real Examples</h4>
+                        <ul>
+                            <li><strong>TCP:</strong>
+                                <ul>
+                                    <li>HTTP/HTTPS: Web page must load completely</li>
+                                    <li>SSH: Every keystroke must arrive</li>
+                                    <li>Database connections: Queries can't be lost</li>
+                                </ul>
+                            </li>
+                            <li><strong>UDP:</strong>
+                                <ul>
+                                    <li>Zoom/Skype: Drop video frame, not worth retrying</li>
+                                    <li>Online gaming: Old position update is useless</li>
+                                    <li>DNS: Timeout and retry at application level</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                        <h4>💡 Our Simulation vs Reality</h4>
+                        <table class="comparison-table">
+                            <thead>
+                                <tr>
+                                    <th>Aspect</th>
+                                    <th>Our Simulation</th>
+                                    <th>Real Implementation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Send</td>
+                                    <td>Manual WAIT() calls</td>
+                                    <td>Asynchronous, interrupt-driven</td>
+                                </tr>
+                                <tr>
+                                    <td>Loss Detection</td>
+                                    <td>random() probability</td>
+                                    <td>Timer expiration (RTO)</td>
+                                </tr>
+                                <tr>
+                                    <td>Processing</td>
+                                    <td>Synchronous function calls</td>
+                                    <td>Hardware interrupts, kernel threads</td>
+                                </tr>
+                                <tr>
+                                    <td>Location</td>
+                                    <td>Application-level simulation</td>
+                                    <td>OS kernel (ring 0)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
