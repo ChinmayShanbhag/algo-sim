@@ -107,8 +107,6 @@ Navigate to `http://localhost:8000`
 4. **Frontend**: Create folder `frontend/visualizations/<feature>/`
 5. **Link**: Add simulation card to `frontend/index.html`
 
-See `.codebase-structure.json` for detailed patterns and conventions.
-
 ### Code Patterns
 
 - **Backend**: Thread-safe simulations with `sync.RWMutex`, JSON-serializable state
