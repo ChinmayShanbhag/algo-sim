@@ -126,12 +126,11 @@ Each simulation is designed to help you understand:
 ## 🤝 Contributing
 
 When adding new features:
-1. Follow existing patterns (see `.codebase-structure.json`)
-2. Ensure thread-safety in backend simulations
-3. Add session support for multi-user isolation
-4. Include reset functionality
-5. Support both dark and light themes
-6. Update README files with new endpoints and features
+1. Ensure thread-safety in backend simulations
+2. Add session support for multi-user isolation
+3. Include reset functionality
+4. Support both dark and light themes
+5. Update README files with new endpoints and features
 
 ## 📝 License
 
