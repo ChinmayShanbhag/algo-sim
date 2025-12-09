@@ -7,10 +7,13 @@ import (
 	"sds/internal/simulation/bloomfilter"
 	"sds/internal/simulation/cache"
 	"sds/internal/simulation/cdc"
+	"sds/internal/simulation/dns"
+	"sds/internal/simulation/graphql"
 	"sds/internal/simulation/mapreduce"
 	"sds/internal/simulation/pagination"
 	"sds/internal/simulation/raft"
 	"sds/internal/simulation/rate_limiting"
+	"sds/internal/simulation/restapi"
 	"sds/internal/simulation/tcpudp"
 	"sds/internal/simulation/three_phase_commit"
 	"sds/internal/simulation/two_phase_commit"
@@ -58,6 +61,15 @@ type State struct {
 
 	// Pagination simulation
 	PaginationSimulator *pagination.Simulator
+
+	// DNS simulation
+	DNSSimulator *dns.DNSSimulator
+
+	// REST API simulation
+	RESTAPISimulator *restapi.RESTAPISimulator
+
+	// GraphQL simulation
+	GraphQLSimulator *graphql.GraphQLSimulator
 
 	// Metadata
 	LastAccessed time.Time
@@ -140,6 +152,15 @@ func (m *Manager) GetOrCreate(sessionID string) *State {
 
 		// Initialize Pagination simulator
 		PaginationSimulator: pagination.NewSimulator(),
+
+		// Initialize DNS simulator
+		DNSSimulator: dns.NewSimulator(),
+
+		// Initialize REST API simulator
+		RESTAPISimulator: restapi.NewSimulator(),
+
+		// Initialize GraphQL simulator
+		GraphQLSimulator: graphql.NewSimulator(),
 
 		// Set timestamps
 		LastAccessed: now,

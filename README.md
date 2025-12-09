@@ -88,6 +88,13 @@ Navigate to `http://localhost:8000`
 ### ⚡ Frontend Performance
 - **Pagination vs Virtualization**: Compare traditional pagination with efficient list virtualization
 
+### 🌍 DNS & Name Resolution
+- **DNS Resolution**: Local cache lookup (instant, stale risk) vs recursive query (fresh, high latency)
+
+### 🔌 API Protocols
+- **REST API**: Interactive REST API client with GET, POST, PUT, PATCH, DELETE - Make real external API calls
+- **GraphQL**: Query exactly what you need - Single endpoint, no over-fetching, nested queries, real external API support
+
 ## 🎨 Features
 
 - **Dark/Light Theme**: Toggle between themes with persistent preference

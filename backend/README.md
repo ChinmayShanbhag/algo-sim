@@ -117,6 +117,13 @@ Server will start on **port 8080**.
   - Body: `{"startIndex": 0, "endIndex": 50}`
 - `POST /api/pagination/reset` - Reset simulation
 
+### DNS Resolution
+- `GET /api/dns/state` - Get DNS system state (cache, servers, history)
+- `POST /api/dns/resolve` - Resolve domain name
+  - Body: `{"domain": "google.com"}`
+- `POST /api/dns/clear-cache` - Clear all DNS cache entries
+- `POST /api/dns/reset` - Reset DNS simulator to initial state
+
 ## 🔧 Adding New Features
 
 ### 1. Create Simulation Logic
@@ -170,6 +177,20 @@ func SetupRoutes(sessionManager *session.Manager) {
     <feature>.SetupRoutes(sessionManager)
 }
 ```
+
+### GraphQL
+- `GET /api/graphql/state` - Get current GraphQL simulator state
+- `POST /api/graphql/query` - Execute GraphQL query/mutation
+  - Body: `{"query": "{ users { id name email } }", "variables": {}, "endpoint": ""}`
+  - Optional `endpoint` field for external GraphQL APIs
+- `POST /api/graphql/reset` - Reset GraphQL data to initial state
+
+### REST API
+- `GET /api/restapi/state` - Get REST API simulator state
+- `POST /api/restapi/request` - Execute REST API request
+  - Body: `{"method": "GET", "url": "/users", "headers": {}, "body": "", "externalUrl": ""}`
+  - Optional `externalUrl` field for real external API calls
+- `POST /api/restapi/reset` - Reset REST API data
 
 ## 🔐 CORS Configuration
 

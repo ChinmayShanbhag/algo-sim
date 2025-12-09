@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GraphQL Simulator</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="../../../session.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="container">
+        <nav class="top-nav">
+            <a href="../../../index.html" class="back-link">← Back to Home</a>
+            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+                <span class="theme-icon">🌙</span>
+            </button>
+        </nav>
+        
+        <header>
+            <h1>GraphQL Simulator</h1>
+            <p class="subtitle">Interactive GraphQL Client - Query Exactly What You Need</p>
+        </header>
+
+        <!-- Main Layout -->
+        <div class="main-layout">
+            <!-- Left Panel - Query Editor -->
+            <div class="query-panel">
+                <div class="section-card">
+                    <h2>🔍 GraphQL Query</h2>
+                    
+                    <!-- Endpoint Input -->
+                    <div class="endpoint-input-group">
+                        <label for="endpoint-input">Endpoint (leave empty for simulated API):</label>
+                        <input type="text" id="endpoint-input" class="endpoint-input" placeholder="https://api.example.com/graphql (optional)" />
+                    </div>
+                    
+                    <div class="url-hint">
+                        💡 <strong>Tip:</strong> Leave empty for simulated API or enter a real GraphQL endpoint like <code>https://countries.trevorblades.com/</code>
+                    </div>
+
+                    <!-- Query Editor -->
+                    <div class="editor-section">
+                        <label>Query / Mutation:</label>
+                        <textarea id="query-editor" class="query-editor" placeholder="Enter your GraphQL query...">query {
+  users {
+    id
+    name
+    email
+  }
+}</textarea>
+                        <div id="query-validation" class="validation-message"></div>
+                    </div>
+
+                    <!-- Variables Editor -->
+                    <div class="editor-section">
+                        <label>Variables (JSON):</label>
+                        <textarea id="variables-editor" class="variables-editor" placeholder='{"id": 1}'></textarea>
+                        <div id="variables-validation" class="validation-message"></div>
+                    </div>
+
+                    <button id="execute-btn" class="execute-button">Execute Query</button>
+
+                    <!-- Quick Examples -->
+                    <div class="quick-examples">
+                        <h3>⚡ Quick Examples (Simulated API)</h3>
+                        <div class="example-buttons">
+                            <button class="example-btn" data-example="get-users">Get All Users</button>
+                            <button class="example-btn" data-example="get-user">Get User by ID</button>
+                            <button class="example-btn" data-example="get-posts">Get Posts with Authors</button>
+                            <button class="example-btn" data-example="create-user">Create User</button>
+                            <button class="example-btn" data-example="update-user">Update User</button>
+                            <button class="example-btn" data-example="delete-user">Delete User</button>
+                        </div>
+                    </div>
+
+                    <button id="reset-btn" class="reset-button">Reset API Data</button>
+                </div>
+            </div>
+
+            <!-- Right Panel - Response & Data -->
+            <div class="response-panel">
+                <!-- Response Section -->
+                <div class="section-card">
+                    <h2>📥 Response</h2>
+                    <div id="response-container">
+                        <div class="empty-response">
+                            <p>👆 Execute a query to see the response</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Current Data -->
+                <div class="section-card">
+                    <h2>💾 Current Data</h2>
+                    <div class="data-tabs">
+                        <button class="data-tab-btn active" data-type="users">Users</button>
+                        <button class="data-tab-btn" data-type="posts">Posts</button>
+                    </div>
+                    <div id="data-container"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Query History -->
+        <div class="section-card">
+            <h2>📊 Query History</h2>
+            <div id="history-container"></div>
+        </div>
+
+        <!-- Educational Content -->
+        <div class="section-card educational">
+            <h2>📚 Understanding GraphQL</h2>
+            
+            <h3>What is GraphQL?</h3>
+            <p><strong>GraphQL</strong> is a query language for APIs and a runtime for executing those queries. Unlike REST where you get fixed data structures, GraphQL lets you ask for exactly what you need - no more, no less.</p>
+            
+            <h3>GraphQL vs REST: Key Differences</h3>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Aspect</th>
+                        <th>REST</th>
+                        <th>GraphQL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Endpoints</strong></td>
+                        <td>Multiple endpoints<br>(<code>/users</code>, <code>/posts</code>)</td>
+                        <td>Single endpoint<br>(<code>/graphql</code>)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Data Fetching</strong></td>
+                        <td>Fixed data structure<br>(over-fetching/under-fetching)</td>
+                        <td>Request exactly what you need<br>(no over/under-fetching)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Multiple Resources</strong></td>
+                        <td>Multiple requests needed<br>(N+1 problem)</td>
+                        <td>Single request<br>(nested queries)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Versioning</strong></td>
+                        <td>URL versioning<br>(<code>/v1/users</code>, <code>/v2/users</code>)</td>
+                        <td>No versioning needed<br>(evolve schema)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Documentation</strong></td>
+                        <td>Manual (Swagger/OpenAPI)</td>
+                        <td>Self-documenting<br>(introspection)</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Core Concepts</h3>
+            <div class="concept-grid">
+                <div class="concept-card">
+                    <h4>📝 Query</h4>
+                    <p>Read data from the server (like GET in REST)</p>
+                    <pre><code>query {
+  user(id: 1) {
+    name
+    email
+  }
+}</code></pre>
+                </div>
+                <div class="concept-card">
+                    <h4>✏️ Mutation</h4>
+                    <p>Modify data on the server (like POST/PUT/DELETE in REST)</p>
+                    <pre><code>mutation {
+  createUser(input: {
+    name: "Alice"
+  }) {
+    id
+    name
+  }
+}</code></pre>
+                </div>
+                <div class="concept-card">
+                    <h4>📡 Subscription</h4>
+                    <p>Real-time updates via WebSocket</p>
+                    <pre><code>subscription {
+  userCreated {
+    id
+    name
+  }
+}</code></pre>
+                </div>
+                <div class="concept-card">
+                    <h4>🔧 Schema</h4>
+                    <p>Defines available types and operations</p>
+                    <pre><code>type User {
+  id: ID!
+  name: String!
+  email: String
+}</code></pre>
+                </div>
+            </div>
+
+            <h3>The Over-Fetching Problem (REST)</h3>
+            <div class="problem-box rest-problem">
+                <h4>REST API Response</h4>
+                <pre><code>GET /users/1
+
+{
+  "id": 1,
+  "name": "Alice",
+  "email": "alice@example.com",
+  "role": "admin",
+  "createdAt": "2024-01-01",
+  "updatedAt": "2024-01-15",
+  "lastLogin": "2024-01-20",
+  "preferences": {...},
+  "settings": {...}
+}
+
+// You only needed name and email,
+// but got everything!</code></pre>
+            </div>
+
+            <h3>The GraphQL Solution</h3>
+            <div class="problem-box graphql-solution">
+                <h4>GraphQL Query</h4>
+                <pre><code>query {
+  user(id: 1) {
+    name
+    email
+  }
+}
+
+// Response - exactly what you asked for:
+{
+  "data": {
+    "user": {
+      "name": "Alice",
+      "email": "alice@example.com"
+    }
+  }
+}</code></pre>
+            </div>
+
+            <h3>Nested Queries (Solving N+1 Problem)</h3>
+            <div class="comparison-box">
+                <div class="comparison-item">
+                    <h4>REST (Multiple Requests)</h4>
+                    <pre><code>// Request 1: Get posts
+GET /posts
+[{id: 1, authorId: 1}, {id: 2, authorId: 2}]
+
+// Request 2: Get author 1
+GET /users/1
+{id: 1, name: "Alice"}
+
+// Request 3: Get author 2
+GET /users/2
+{id: 2, name: "Bob"}
+
+// Total: 3 requests!</code></pre>
+                </div>
+                <div class="comparison-item">
+                    <h4>GraphQL (Single Request)</h4>
+                    <pre><code>query {
+  posts {
+    id
+    title
+    author {
+      id
+      name
+    }
+  }
+}
+
+// Response includes everything:
+{
+  "data": {
+    "posts": [
+      {
+        "id": 1,
+        "title": "...",
+        "author": {"id": 1, "name": "Alice"}
+      },
+      {
+        "id": 2,
+        "title": "...",
+        "author": {"id": 2, "name": "Bob"}
+      }
+    ]
+  }
+}
+
+// Total: 1 request!</code></pre>
+                </div>
+            </div>
+
+            <h3>Variables & Dynamic Queries</h3>
+            <p>Use variables to make queries reusable and prevent injection attacks:</p>
+            <div class="code-example">
+                <pre><code>// Query with variable
+query GetUser($userId: ID!) {
+  user(id: $userId) {
+    name
+    email
+  }
+}
+
+// Variables (separate JSON)
+{
+  "userId": 1
+}</code></pre>
+            </div>
+
+            <h3>GraphQL Type System</h3>
+            <table class="type-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Description</th>
+                        <th>Example</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>String</code></td>
+                        <td>Text data</td>
+                        <td><code>name: String</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>Int</code></td>
+                        <td>Integer number</td>
+                        <td><code>age: Int</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>Float</code></td>
+                        <td>Decimal number</td>
+                        <td><code>price: Float</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>Boolean</code></td>
+                        <td>true/false</td>
+                        <td><code>isActive: Boolean</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>ID</code></td>
+                        <td>Unique identifier</td>
+                        <td><code>id: ID!</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>!</code></td>
+                        <td>Non-nullable (required)</td>
+                        <td><code>name: String!</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>[]</code></td>
+                        <td>List/Array</td>
+                        <td><code>tags: [String]</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Error Handling</h3>
+            <p>GraphQL returns partial data even when errors occur:</p>
+            <div class="code-example">
+                <pre><code>{
+  "data": {
+    "user": {
+      "name": "Alice",
+      "email": "alice@example.com"
+    },
+    "posts": null  // This failed
+  },
+  "errors": [
+    {
+      "message": "Posts service unavailable",
+      "path": ["posts"],
+      "locations": [{"line": 5, "column": 3}]
+    }
+  ]
+}
+
+// You still get user data even though posts failed!</code></pre>
+            </div>
+
+            <h3>Best Practices</h3>
+            <ul class="best-practices">
+                <li><strong>Use fragments</strong> to reuse field selections across queries</li>
+                <li><strong>Implement pagination</strong> for large lists (cursor-based preferred)</li>
+                <li><strong>Use variables</strong> instead of string interpolation for security</li>
+                <li><strong>Request only needed fields</strong> to minimize payload size</li>
+                <li><strong>Implement DataLoader</strong> on server to batch database queries</li>
+                <li><strong>Use aliases</strong> when querying same field multiple times</li>
+                <li><strong>Enable query depth limiting</strong> to prevent malicious deep queries</li>
+                <li><strong>Cache responses</strong> based on query + variables hash</li>
+            </ul>
+
+            <h3>Real-World GraphQL APIs</h3>
+            <div class="real-world-examples">
+                <div class="example-box">
+                    <h4>GitHub GraphQL API</h4>
+                    <pre><code>https://api.github.com/graphql
+
+query {
+  viewer {
+    login
+    repositories(first: 10) {
+      nodes {
+        name
+        stargazerCount
+      }
+    }
+  }
+}</code></pre>
+                    <p>Requires authentication token</p>
+                </div>
+                <div class="example-box">
+                    <h4>Countries API (Public)</h4>
+                    <pre><code>https://countries.trevorblades.com/
+
+query {
+  countries {
+    code
+    name
+    capital
+    currency
+  }
+}</code></pre>
+                    <p>No auth required - try it!</p>
+                </div>
+                <div class="example-box">
+                    <h4>SpaceX API</h4>
+                    <pre><code>https://spacex-production.up.railway.app/
+
+query {
+  launches(limit: 5) {
+    mission_name
+    launch_date_utc
+    rocket {
+      rocket_name
+    }
+  }
+}</code></pre>
+                    <p>Public SpaceX data</p>
+                </div>
+            </div>
+
+            <h3>Try It Yourself!</h3>
+            <ol>
+                <li><strong>Simple Query:</strong> Click "Get All Users" to see basic querying</li>
+                <li><strong>Nested Query:</strong> Click "Get Posts with Authors" to see relationship fetching</li>
+                <li><strong>With Variables:</strong> Click "Get User by ID" to see variable usage</li>
+                <li><strong>Mutation:</strong> Click "Create User" to modify data</li>
+                <li><strong>Real API:</strong> Enter <code>https://countries.trevorblades.com/</code> and try querying countries!</li>
+            </ol>
+
+            <h3>When to Use GraphQL vs REST</h3>
+            <div class="when-to-use">
+                <div class="use-case graphql-case">
+                    <h4>✅ Use GraphQL When:</h4>
+                    <ul>
+                        <li>Frontend needs vary greatly (mobile vs web)</li>
+                        <li>Multiple resources needed per view</li>
+                        <li>Bandwidth is limited (mobile apps)</li>
+                        <li>Rapid frontend iteration required</li>
+                        <li>Complex, nested data relationships</li>
+                        <li>Real-time updates needed (subscriptions)</li>
+                    </ul>
+                </div>
+                <div class="use-case rest-case">
+                    <h4>✅ Use REST When:</h4>
+                    <ul>
+                        <li>Simple CRUD operations</li>
+                        <li>File uploads/downloads</li>
+                        <li>HTTP caching is critical</li>
+                        <li>Team unfamiliar with GraphQL</li>
+                        <li>Microservices with clear boundaries</li>
+                        <li>Public API with rate limiting</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

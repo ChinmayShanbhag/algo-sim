@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REST API Simulator</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="../../../session.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="container">
+        <nav class="top-nav">
+            <a href="../../../index.html" class="back-link">← Back to Home</a>
+            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+                <span class="theme-icon">🌙</span>
+            </button>
+        </nav>
+        
+        <header>
+            <h1>REST API Simulator</h1>
+            <p class="subtitle">Interactive REST API Client - Make Real HTTP Requests</p>
+        </header>
+
+        <!-- API Request Builder -->
+        <div class="main-layout">
+            <!-- Left Panel - Request Builder -->
+            <div class="request-panel">
+                <div class="section-card">
+                    <h2>🔧 Request Builder</h2>
+                    
+                    <!-- Method and URL -->
+                    <div class="request-line">
+                        <select id="method-select" class="method-select">
+                            <option value="GET">GET</option>
+                            <option value="POST">POST</option>
+                            <option value="PUT">PUT</option>
+                            <option value="PATCH">PATCH</option>
+                            <option value="DELETE">DELETE</option>
+                        </select>
+                        <input type="text" id="url-input" class="url-input" placeholder="/users or https://api.example.com/users" value="/users" />
+                        <button id="send-btn" class="send-button">Send</button>
+                    </div>
+                    
+                    <div id="url-hint" class="url-hint">
+                        💡 <strong>Tip:</strong> Use <code>/users</code> for simulated API or <code>https://jsonplaceholder.typicode.com/users</code> for real APIs
+                    </div>
+
+                    <!-- Tabs for Request Details -->
+                    <div class="tabs">
+                        <button class="tab-btn active" data-tab="headers">Headers</button>
+                        <button class="tab-btn" data-tab="body">Body</button>
+                        <button class="tab-btn" data-tab="query">Query Params</button>
+                    </div>
+
+                    <!-- Headers Tab -->
+                    <div class="tab-content active" id="headers-tab">
+                        <div class="key-value-editor" id="headers-editor">
+                            <div class="kv-row">
+                                <input type="text" class="kv-key" placeholder="Header Name" value="Content-Type" />
+                                <input type="text" class="kv-value" placeholder="Header Value" value="application/json" />
+                                <button class="kv-remove">×</button>
+                            </div>
+                        </div>
+                        <button class="add-row-btn" data-editor="headers">+ Add Header</button>
+                    </div>
+
+                    <!-- Body Tab -->
+                    <div class="tab-content" id="body-tab">
+                        <div class="body-format-selector">
+                            <label>
+                                <input type="radio" name="body-format" value="json" checked /> JSON
+                            </label>
+                            <label>
+                                <input type="radio" name="body-format" value="none" /> None
+                            </label>
+                        </div>
+                        <textarea id="body-editor" class="body-editor" placeholder='{\n  "name": "John Doe",\n  "email": "john@example.com"\n}'></textarea>
+                        <div id="body-validation" class="validation-message"></div>
+                    </div>
+
+                    <!-- Query Params Tab -->
+                    <div class="tab-content" id="query-tab">
+                        <div class="key-value-editor" id="query-editor">
+                            <!-- Query params will be added dynamically -->
+                        </div>
+                        <button class="add-row-btn" data-editor="query">+ Add Query Param</button>
+                    </div>
+
+                    <!-- Quick Examples -->
+                    <div class="quick-examples">
+                        <h3>⚡ Quick Examples (Simulated API)</h3>
+                        <div class="example-buttons">
+                            <button class="example-btn" data-example="get-users">GET /users</button>
+                            <button class="example-btn" data-example="get-user">GET /users/1</button>
+                            <button class="example-btn" data-example="post-user">POST /users</button>
+                            <button class="example-btn" data-example="put-user">PUT /users/1</button>
+                            <button class="example-btn" data-example="patch-user">PATCH /users/1</button>
+                            <button class="example-btn" data-example="delete-user">DELETE /users/1</button>
+                        </div>
+                    </div>
+
+                    <button id="reset-btn" class="reset-button">Reset API Data</button>
+                </div>
+            </div>
+
+            <!-- Right Panel - Response & Resources -->
+            <div class="response-panel">
+                <!-- Response Section -->
+                <div class="section-card">
+                    <h2>📥 Response</h2>
+                    <div id="response-container">
+                        <div class="empty-response">
+                            <p>👆 Make a request to see the response</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Current Resources -->
+                <div class="section-card">
+                    <h2>💾 Current Resources</h2>
+                    <div class="resource-tabs">
+                        <button class="resource-tab-btn active" data-resource="users">Users</button>
+                        <button class="resource-tab-btn" data-resource="posts">Posts</button>
+                        <button class="resource-tab-btn" data-resource="comments">Comments</button>
+                    </div>
+                    <div id="resources-container"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Request History -->
+        <div class="section-card">
+            <h2>📊 Request History</h2>
+            <div id="history-container"></div>
+        </div>
+
+        <!-- Educational Content -->
+        <div class="section-card educational">
+            <h2>📚 Understanding REST APIs</h2>
+            
+            <h3>What is REST?</h3>
+            <p><strong>REST (Representational State Transfer)</strong> is an architectural style for designing networked applications. It uses HTTP methods to perform CRUD (Create, Read, Update, Delete) operations on resources.</p>
+            
+            <h3>HTTP Methods & Their Purpose</h3>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Method</th>
+                        <th>Purpose</th>
+                        <th>Idempotent</th>
+                        <th>Safe</th>
+                        <th>Example</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>GET</strong></td>
+                        <td>Retrieve resource(s)</td>
+                        <td>✅ Yes</td>
+                        <td>✅ Yes</td>
+                        <td><code>GET /users/1</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>POST</strong></td>
+                        <td>Create new resource</td>
+                        <td>❌ No</td>
+                        <td>❌ No</td>
+                        <td><code>POST /users</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>PUT</strong></td>
+                        <td>Full update (replace)</td>
+                        <td>✅ Yes</td>
+                        <td>❌ No</td>
+                        <td><code>PUT /users/1</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>PATCH</strong></td>
+                        <td>Partial update (modify)</td>
+                        <td>❌ No</td>
+                        <td>❌ No</td>
+                        <td><code>PATCH /users/1</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>DELETE</strong></td>
+                        <td>Remove resource</td>
+                        <td>✅ Yes</td>
+                        <td>❌ No</td>
+                        <td><code>DELETE /users/1</code></td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <h3>Key Concepts</h3>
+            <div class="concept-grid">
+                <div class="concept-card">
+                    <h4>🔑 Idempotent</h4>
+                    <p>Multiple identical requests have the same effect as a single request</p>
+                    <p class="example"><strong>Example:</strong> DELETE /users/1 called 5 times = same as calling it once</p>
+                </div>
+                <div class="concept-card">
+                    <h4>🛡️ Safe</h4>
+                    <p>Request doesn't modify server state (read-only)</p>
+                    <p class="example"><strong>Example:</strong> GET requests never change data</p>
+                </div>
+                <div class="concept-card">
+                    <h4>📦 Resource</h4>
+                    <p>Any information that can be named (users, posts, comments)</p>
+                    <p class="example"><strong>Example:</strong> /users/1 represents user with ID 1</p>
+                </div>
+                <div class="concept-card">
+                    <h4>🎯 Endpoint</h4>
+                    <p>URL where API can be accessed</p>
+                    <p class="example"><strong>Example:</strong> /api/users is an endpoint</p>
+                </div>
+            </div>
+
+            <h3>HTTP Status Codes</h3>
+            <div class="status-code-grid">
+                <div class="status-category informational">
+                    <h4>1xx Informational</h4>
+                    <ul>
+                        <li><strong>100 Continue:</strong> Client should continue request</li>
+                        <li><strong>101 Switching Protocols:</strong> Server switching protocols (e.g., WebSocket)</li>
+                        <li><strong>102 Processing:</strong> Server received request, still processing</li>
+                    </ul>
+                </div>
+                <div class="status-category success">
+                    <h4>2xx Success</h4>
+                    <ul>
+                        <li><strong>200 OK:</strong> Request succeeded</li>
+                        <li><strong>201 Created:</strong> Resource created successfully</li>
+                        <li><strong>204 No Content:</strong> Success, no response body</li>
+                        <li><strong>206 Partial Content:</strong> Partial GET request (range)</li>
+                    </ul>
+                </div>
+                <div class="status-category redirect">
+                    <h4>3xx Redirection</h4>
+                    <ul>
+                        <li><strong>301 Moved Permanently:</strong> Resource moved to new URL</li>
+                        <li><strong>302 Found:</strong> Temporary redirect</li>
+                        <li><strong>304 Not Modified:</strong> Cached version is still valid</li>
+                        <li><strong>307 Temporary Redirect:</strong> Temporary redirect (keep method)</li>
+                        <li><strong>308 Permanent Redirect:</strong> Permanent redirect (keep method)</li>
+                    </ul>
+                </div>
+                <div class="status-category client-error">
+                    <h4>4xx Client Errors</h4>
+                    <ul>
+                        <li><strong>400 Bad Request:</strong> Invalid request format</li>
+                        <li><strong>401 Unauthorized:</strong> Authentication required</li>
+                        <li><strong>403 Forbidden:</strong> No permission to access</li>
+                        <li><strong>404 Not Found:</strong> Resource doesn't exist</li>
+                        <li><strong>405 Method Not Allowed:</strong> Wrong HTTP method</li>
+                        <li><strong>429 Too Many Requests:</strong> Rate limit exceeded</li>
+                    </ul>
+                </div>
+                <div class="status-category server-error">
+                    <h4>5xx Server Errors</h4>
+                    <ul>
+                        <li><strong>500 Internal Server Error:</strong> Server crashed</li>
+                        <li><strong>502 Bad Gateway:</strong> Invalid response from upstream</li>
+                        <li><strong>503 Service Unavailable:</strong> Server overloaded</li>
+                        <li><strong>504 Gateway Timeout:</strong> Upstream server timeout</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3>PUT vs PATCH: The Key Difference</h3>
+            <div class="comparison-box">
+                <div class="comparison-item">
+                    <h4>PUT (Full Replacement)</h4>
+                    <pre><code>// Original user
+{
+  "name": "Alice",
+  "email": "alice@example.com",
+  "role": "admin"
+}
+
+// PUT /users/1
+{
+  "name": "Alice Updated"
+}
+
+// Result: Other fields removed!
+{
+  "name": "Alice Updated"
+}</code></pre>
+                </div>
+                <div class="comparison-item">
+                    <h4>PATCH (Partial Update)</h4>
+                    <pre><code>// Original user
+{
+  "name": "Alice",
+  "email": "alice@example.com",
+  "role": "admin"
+}
+
+// PATCH /users/1
+{
+  "name": "Alice Updated"
+}
+
+// Result: Other fields preserved!
+{
+  "name": "Alice Updated",
+  "email": "alice@example.com",
+  "role": "admin"
+}</code></pre>
+                </div>
+            </div>
+
+            <h3>REST API Best Practices</h3>
+            <ul class="best-practices">
+                <li><strong>Use nouns for resources:</strong> <code>/users</code> not <code>/getUsers</code></li>
+                <li><strong>Use plural names:</strong> <code>/users</code> not <code>/user</code></li>
+                <li><strong>Use HTTP methods correctly:</strong> Don't use POST for everything</li>
+                <li><strong>Return appropriate status codes:</strong> 200 for success, 404 for not found, etc.</li>
+                <li><strong>Version your API:</strong> <code>/api/v1/users</code> for future compatibility</li>
+                <li><strong>Use query params for filtering:</strong> <code>/users?role=admin&limit=10</code></li>
+                <li><strong>Return created resource location:</strong> Include <code>Location</code> header in 201 responses</li>
+                <li><strong>Be consistent:</strong> Use same patterns across all endpoints</li>
+            </ul>
+
+            <h3>Try It Yourself!</h3>
+            <ol>
+                <li><strong>GET Collection:</strong> Click "GET /users" to retrieve all users</li>
+                <li><strong>GET Resource:</strong> Click "GET /users/1" to get a specific user</li>
+                <li><strong>POST Create:</strong> Click "POST /users" to create a new user</li>
+                <li><strong>PUT Replace:</strong> Click "PUT /users/1" and see full replacement</li>
+                <li><strong>PATCH Update:</strong> Click "PATCH /users/1" and see partial update</li>
+                <li><strong>DELETE Remove:</strong> Click "DELETE /users/1" to delete a user</li>
+                <li><strong>Custom Request:</strong> Modify the URL, method, headers, or body and experiment!</li>
+            </ol>
+
+            <h3>Real-World REST API Examples</h3>
+            <div class="real-world-examples">
+                <div class="example-box">
+                    <h4>GitHub API</h4>
+                    <pre><code>GET https://api.github.com/users/octocat
+GET https://api.github.com/repos/facebook/react
+POST https://api.github.com/repos/:owner/:repo/issues</code></pre>
+                </div>
+                <div class="example-box">
+                    <h4>Twitter API</h4>
+                    <pre><code>GET https://api.twitter.com/2/tweets/:id
+POST https://api.twitter.com/2/tweets
+DELETE https://api.twitter.com/2/tweets/:id</code></pre>
+                </div>
+                <div class="example-box">
+                    <h4>Stripe API</h4>
+                    <pre><code>POST https://api.stripe.com/v1/customers
+GET https://api.stripe.com/v1/customers/:id
+POST https://api.stripe.com/v1/charges</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

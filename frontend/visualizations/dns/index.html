@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DNS Resolution - Cache vs Recursive Query</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="../../session.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="container">
+        <nav class="top-nav">
+            <a href="../../index.html" class="back-link">← Back to Home</a>
+            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+                <span class="theme-icon">🌙</span>
+            </button>
+        </nav>
+        
+        <header>
+            <h1>DNS Resolution Simulator</h1>
+            <p class="subtitle">Compare Local Cache Lookup vs Recursive DNS Query</p>
+        </header>
+
+        <div id="controls">
+            <div class="control-group">
+                <h3>🔍 Resolve Domain</h3>
+                <div class="controls-row">
+                    <div class="input-group">
+                        <label for="domain-input">Domain Name:</label>
+                        <input type="text" id="domain-input" placeholder="e.g., example.com" />
+                    </div>
+                    <button id="resolve-btn" class="primary-button">Resolve Domain</button>
+                    <button id="clear-cache-btn" class="secondary-button">Clear Cache</button>
+                    <button id="reset-btn" class="reset-button">Reset</button>
+                </div>
+                <div id="operation-feedback"></div>
+            </div>
+
+            <!-- Pre-seeded domains for quick testing -->
+            <div class="control-group">
+                <h3>⚡ Quick Test Domains</h3>
+                <div class="quick-domains">
+                    <button class="quick-domain-btn" data-domain="google.com">google.com (cached)</button>
+                    <button class="quick-domain-btn" data-domain="github.com">github.com (expiring soon)</button>
+                    <button class="quick-domain-btn" data-domain="cloudflare.com">cloudflare.com (expired)</button>
+                    <button class="quick-domain-btn" data-domain="netflix.com">netflix.com (not cached)</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Dashboard -->
+        <div id="stats-dashboard">
+            <div class="stat-card">
+                <div class="stat-label">Total Queries</div>
+                <div class="stat-value" id="stat-total">0</div>
+            </div>
+            <div class="stat-card cache-hit">
+                <div class="stat-label">Cache Hits</div>
+                <div class="stat-value" id="stat-cache-hits">0</div>
+                <div class="stat-detail" id="stat-cache-avg">~0ms avg</div>
+            </div>
+            <div class="stat-card cache-miss">
+                <div class="stat-label">Cache Misses</div>
+                <div class="stat-value" id="stat-cache-misses">0</div>
+                <div class="stat-detail" id="stat-recursive-avg">~0ms avg</div>
+            </div>
+            <div class="stat-card expired">
+                <div class="stat-label">Expired Cache</div>
+                <div class="stat-value" id="stat-expired">0</div>
+                <div class="stat-detail">Stale data risk</div>
+            </div>
+        </div>
+
+        <!-- Main Visualization Area -->
+        <div class="main-content">
+            <!-- DNS Cache View -->
+            <div class="section-card">
+                <h2>💾 Local DNS Cache</h2>
+                <p class="section-description">
+                    <strong>Advantage:</strong> Instant lookup (~1ms), zero network I/O<br>
+                    <strong>Risk:</strong> Stale data if TTL expired, requires recursive query on miss
+                </p>
+                <div id="cache-visualization"></div>
+            </div>
+
+            <!-- Latest Query Result -->
+            <div class="section-card" id="latest-query-section" style="display: none;">
+                <h2>🔄 Latest Query Result</h2>
+                <div id="latest-query-result"></div>
+            </div>
+
+            <!-- Recursive Query Visualization -->
+            <div class="section-card">
+                <h2>🌐 Recursive DNS Query Flow</h2>
+                <p class="section-description">
+                    <strong>Advantage:</strong> Always fresh data from authoritative source<br>
+                    <strong>Cost:</strong> High latency (~140-200ms), multiple network round-trips, I/O overhead
+                </p>
+                <div id="recursive-visualization"></div>
+            </div>
+
+            <!-- Query History -->
+            <div class="section-card">
+                <h2>📊 Query History</h2>
+                <div id="query-history"></div>
+            </div>
+
+            <!-- Educational Content -->
+            <div class="section-card educational">
+                <h2>📚 Understanding DNS Resolution</h2>
+                
+                <h3>What is DNS?</h3>
+                <p>The Domain Name System (DNS) is the internet's phone book. It translates human-readable domain names (like <code>google.com</code>) into IP addresses (like <code>142.250.185.46</code>) that computers use to communicate.</p>
+                
+                <h3>The Two Resolution Paths</h3>
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Aspect</th>
+                            <th>Local DNS Cache</th>
+                            <th>Recursive DNS Query</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Latency</strong></td>
+                            <td>✅ ~1ms (instant)</td>
+                            <td>⚠️ 140-200ms (multi-hop)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Network I/O</strong></td>
+                            <td>✅ Zero (local memory)</td>
+                            <td>⚠️ 5 round-trips required</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Data Freshness</strong></td>
+                            <td>⚠️ May be stale (TTL expired)</td>
+                            <td>✅ Always fresh & authoritative</td>
+                        </tr>
+                        <tr>
+                            <td><strong>TTFB Impact</strong></td>
+                            <td>✅ Negligible (~1ms)</td>
+                            <td>⚠️ Significant (adds 140-200ms)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Best For</strong></td>
+                            <td>Repeat visits, high traffic sites</td>
+                            <td>First visit, critical accuracy</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <h3>The Recursive DNS Query Journey</h3>
+                <p>When your cache doesn't have the answer (or it's expired), here's the full journey:</p>
+                <ol class="dns-steps">
+                    <li><strong>Client → Local Resolver (5ms):</strong> Your device asks your ISP's DNS resolver</li>
+                    <li><strong>Resolver → Root Server (50ms):</strong> "Where do I find .com domains?" → "Ask the .com TLD server"</li>
+                    <li><strong>Resolver → TLD Server (40ms):</strong> "Where's google.com?" → "Ask ns1.google.com"</li>
+                    <li><strong>Resolver → Authoritative Server (45ms):</strong> "What's the IP for google.com?" → "142.250.185.46"</li>
+                    <li><strong>Resolver → Client (5ms):</strong> Returns the final answer with TTL</li>
+                </ol>
+                <p><strong>Total:</strong> ~145ms of network latency + I/O overhead</p>
+                
+                <h3>TTL (Time To Live): The Critical Trade-off</h3>
+                <p><strong>TTL</strong> determines how long a DNS record stays in cache before expiring.</p>
+                <ul>
+                    <li><strong>Short TTL (30-60s):</strong> Fresh data, but more recursive queries (higher latency)</li>
+                    <li><strong>Medium TTL (5-15min):</strong> Balanced approach used by most sites</li>
+                    <li><strong>Long TTL (1-24hrs):</strong> Fast lookups, but changes propagate slowly</li>
+                </ul>
+                <p><strong>Real-world example:</strong> When migrating servers, you'd set a short TTL beforehand so users quickly get the new IP.</p>
+                
+                <h3>Key Insights</h3>
+                <div class="insight-box">
+                    <p><strong>🎯 Cache Hit Rate Matters:</strong> A 90% cache hit rate means 90% of requests are ~1ms, only 10% pay the 145ms penalty.</p>
+                    <p><strong>⚠️ Stale Data Risk:</strong> Expired cache entries force a recursive query, adding unexpected latency spikes.</p>
+                    <p><strong>🌐 TTFB Impact:</strong> DNS resolution happens <em>before</em> the HTTP request, directly affecting Time To First Byte.</p>
+                    <p><strong>📊 CDN Strategy:</strong> CDNs use short TTLs (60s) to quickly redirect traffic during outages or load balancing.</p>
+                </div>
+                
+                <h3>Try It Yourself!</h3>
+                <ol>
+                    <li><strong>Cache Hit:</strong> Resolve <code>google.com</code> - see instant ~1ms lookup</li>
+                    <li><strong>Expiring Soon:</strong> Resolve <code>github.com</code> - cache entry about to expire</li>
+                    <li><strong>Expired Cache:</strong> Resolve <code>cloudflare.com</code> - forces recursive query despite being cached</li>
+                    <li><strong>Cache Miss:</strong> Resolve <code>newdomain.com</code> - full 5-step recursive query</li>
+                    <li><strong>Clear Cache:</strong> Click "Clear Cache" and re-resolve any domain to see the difference</li>
+                </ol>
+
+                <h3>🔧 Real-World DNS Implementation</h3>
+                <div class="backend-section">
+                    <h4>How Production Systems Handle DNS</h4>
+                    
+                    <div class="algorithm-impl">
+                        <h5>1️⃣ Browser DNS Cache (Chrome/Firefox)</h5>
+                        <pre><code>// Browser maintains its own DNS cache
+FUNCTION ResolveDomain(domain):
+    // Check browser cache first
+    cachedEntry = BROWSER_CACHE.get(domain)
+    
+    IF cachedEntry AND NOT cachedEntry.isExpired() THEN
+        RETURN cachedEntry.ip  // ~1ms lookup
+    END IF
+    
+    // Cache miss - ask OS resolver
+    ip = OS_DNS_RESOLVER.lookup(domain)  // ~145ms
+    
+    // Cache the result with TTL
+    BROWSER_CACHE.set(domain, ip, ttl=300)
+    
+    RETURN ip
+END FUNCTION
+
+CACHE HIERARCHY:
+    1. Browser Cache (in-memory)
+    2. OS DNS Cache (system-level)
+    3. Router Cache (home network)
+    4. ISP Resolver Cache
+    5. Recursive Query (last resort)
+
+KEY INSIGHT: Multiple cache layers mean most users
+never experience the full 145ms recursive query!</code></pre>
+                    </div>
+
+                    <div class="algorithm-impl">
+                        <h5>2️⃣ DNS Prefetching (Performance Optimization)</h5>
+                        <pre><code>// Modern browsers prefetch DNS for links on page
+&lt;link rel="dns-prefetch" href="//cdn.example.com"&gt;
+&lt;link rel="dns-prefetch" href="//api.example.com"&gt;
+
+HOW IT WORKS:
+    1. Browser parses HTML
+    2. Finds external domains in links/images
+    3. Resolves DNS in background (parallel)
+    4. When user clicks link, DNS already cached!
+
+PERFORMANCE IMPACT:
+    Without prefetch: 145ms DNS + 50ms connection + content
+    With prefetch:    0ms DNS + 50ms connection + content
+    
+    Saves 145ms on every external link click!
+
+USED BY: Google, Facebook, Amazon (all major sites)
+
+EXAMPLE:
+    &lt;!-- Prefetch CDN domains --&gt;
+    &lt;link rel="dns-prefetch" href="//fonts.googleapis.com"&gt;
+    &lt;link rel="dns-prefetch" href="//cdn.jsdelivr.net"&gt;
+    
+    &lt;!-- Later in page, these are instant --&gt;
+    &lt;link href="https://fonts.googleapis.com/..." rel="stylesheet"&gt;
+    &lt;script src="https://cdn.jsdelivr.net/..."&gt;&lt;/script&gt;</code></pre>
+                    </div>
+
+                    <div class="algorithm-impl">
+                        <h5>3️⃣ DNS Load Balancing (Round-Robin)</h5>
+                        <pre><code>// Authoritative servers return multiple IPs
+QUERY: google.com
+RESPONSE:
+    142.250.185.46  (TTL: 300s)
+    142.250.185.78  (TTL: 300s)
+    142.250.185.110 (TTL: 300s)
+
+HOW IT WORKS:
+    1. DNS server rotates IP order on each query
+    2. Clients typically use first IP returned
+    3. Distributes traffic across multiple servers
+    4. If one server fails, others still work
+
+EXAMPLE (Google's approach):
+    Query 1: [IP-A, IP-B, IP-C] → Client uses IP-A
+    Query 2: [IP-B, IP-C, IP-A] → Client uses IP-B
+    Query 3: [IP-C, IP-A, IP-B] → Client uses IP-C
+    
+    Result: Traffic evenly distributed!
+
+ADVANCED: GeoDNS
+    - Returns different IPs based on user location
+    - US users get US servers (low latency)
+    - EU users get EU servers (GDPR compliance)
+    - Asia users get Asia servers (fast access)</code></pre>
+                    </div>
+
+                    <div class="algorithm-impl">
+                        <h5>4️⃣ DNS Caching Strategy (Real-World TTLs)</h5>
+                        <pre><code>// Different TTL strategies for different needs
+
+STATIC CONTENT (Long TTL):
+    example.com         A    93.184.216.34    TTL=86400  (24 hours)
+    cdn.example.com     A    151.101.1.195    TTL=3600   (1 hour)
+    
+    Why? These rarely change, maximize cache hits
+
+DYNAMIC CONTENT (Short TTL):
+    api.example.com     A    10.0.1.50        TTL=60     (1 minute)
+    lb.example.com      A    10.0.1.51        TTL=30     (30 seconds)
+    
+    Why? Need flexibility for failover/scaling
+
+MIGRATION STRATEGY:
+    1. Week before: Set TTL=300 (5 minutes)
+    2. Day before:  Set TTL=60  (1 minute)
+    3. During:      Change IP, wait 60s
+    4. After:       Set TTL=3600 (1 hour)
+    
+    Result: Smooth transition, minimal downtime!
+
+REAL EXAMPLES:
+    google.com:     TTL=300   (balance)
+    facebook.com:   TTL=60    (frequent changes)
+    github.com:     TTL=60    (load balancing)
+    cloudflare.com: TTL=300   (CDN optimization)</code></pre>
+                    </div>
+                </div>
+
+                <h3>Performance Best Practices</h3>
+                <ul>
+                    <li><strong>Use DNS Prefetching:</strong> Add <code>&lt;link rel="dns-prefetch"&gt;</code> for external domains</li>
+                    <li><strong>Minimize DNS Lookups:</strong> Fewer domains = fewer DNS queries (but balance with CDN benefits)</li>
+                    <li><strong>Choose Appropriate TTLs:</strong> Longer for stability, shorter for flexibility</li>
+                    <li><strong>Monitor Cache Hit Rate:</strong> Aim for >90% to minimize recursive queries</li>
+                    <li><strong>Use a Fast DNS Provider:</strong> Cloudflare (1.1.1.1), Google (8.8.8.8) have global presence</li>
+                </ul>
+
+                <h3>Common Pitfalls</h3>
+                <ul>
+                    <li><strong>❌ TTL Too Long:</strong> Server changes take hours to propagate</li>
+                    <li><strong>❌ TTL Too Short:</strong> Excessive recursive queries increase latency</li>
+                    <li><strong>❌ Ignoring DNS in Performance:</strong> DNS can add 200ms to TTFB on cache miss</li>
+                    <li><strong>❌ Not Prefetching:</strong> Missing easy performance wins for external resources</li>
+                </ul>
+
+                <h3>Real-World Impact</h3>
+                <p><strong>Case Study - E-commerce Site:</strong></p>
+                <ul>
+                    <li><strong>Before:</strong> 30% cache miss rate, avg DNS time 85ms</li>
+                    <li><strong>After:</strong> Added DNS prefetching + optimized TTL → 95% cache hit rate, avg DNS time 12ms</li>
+                    <li><strong>Result:</strong> 73ms faster page loads, 8% increase in conversions</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+
